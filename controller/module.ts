@@ -8,14 +8,22 @@ import { ModPath, type FunctionDef, type Module } from "../model/types";
 export const db = await RemoteDB()
 
 
-export const createModule = async (mod: ModPath ): Promise<Module> => {
+export const createModule = async (path: ModPath, tryCopy : (callback:()=>Promise<ModPath>)=>void ): Promise<Module> => {
   let module_list = await db.get<ModPath[]>("modules", [ModPath])
-  if (!module_list.get().map(x=>JSON.stringify(x)).includes(JSON.stringify(mod))) module_list.set([...module_list.get(), mod])
+  if (!module_list.get().map(x=>JSON.stringify(x)).includes(JSON.stringify(path))) module_list.set([...module_list.get(), path])
   let modState: Stored<any>[] = []
   let mod_db = async  <T extends JsonData> (key:string, pattern:Pattern) => {
-    let st = await db.get<T>(mod.name+":"+key, pattern, mod.owner)
-    if (mod.owner != db.userid) st.set = async (val:T)=>{
-      throw new Error ("You cannot edit this module.")
+    let st = await db.get<T>(path.name+":"+key, pattern, path.owner)
+    if (path.owner != db.userid) st.set = async ()=>{
+      tryCopy(()=> createModule({owner: db.userid, name: path.name}, tryCopy)
+        .then(newmod=>Promise.all([
+          newmod.documents.set(module.documents.get()),
+          newmod.extraction.set(module.extraction.get()),
+          newmod.functions.set(module.functions.get()),
+          newmod.taxonomy.set(module.taxonomy.get()),
+          newmod.prompt.set(module.prompt.get())
+        ]).then(()=>newmod.path))
+      )
     }
     modState.push(st as any as Stored<JsonData>)
     return st
@@ -29,8 +37,8 @@ export const createModule = async (mod: ModPath ): Promise<Module> => {
     mod_db<string>("prompt", String)
   ])
 
-  const module: Module ={db: mod_db,functions,taxonomy,extraction,documents,prompt}
-  if (mod.owner == db.userid) await module.functions.set(default_functions)
+  const module: Module ={db: mod_db,functions,taxonomy,extraction,documents,prompt,path}
+  if (path.owner == db.userid) await module.functions.set(default_functions)
   return module
 }
 

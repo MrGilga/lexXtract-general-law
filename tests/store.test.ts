@@ -1,5 +1,5 @@
 // import { db } from "../src/app";
-import { db } from "../controller/app";
+import { db } from "../controller/module";
 import { assert, assertEqualJSON, runTests } from "./test";
 
 

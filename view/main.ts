@@ -1,5 +1,5 @@
 import { FunctionDefPattern, mkRunner } from "../controller/agent_functions";
-import { createModule, db  } from "../controller/app";
+import { createModule, db  } from "../controller/module";
 import { randUser, type Stored } from "../model/db";
 import { hash } from "../model/db";
 import { LocalStored } from "../model/helpers";
@@ -53,7 +53,12 @@ let loadUser = async ()=>{
   const show_module = async (mod:ModPath) => {
     console.log("Loading module", mod)
 
-    let module = await createModule(mod);
+    let module = await createModule(mod, mkcopy=>{
+      let pop = popup(
+        h3("Module is read-only"),
+        p("This module belongs to another user and cannot be edited directly. Would you like to create a copy of this module in your account that you can edit?"),
+        button("Yes, create a copy", {onclick:()=>{mkcopy().then(show_module); pop.remove()}}))
+    });
 
     const Taxonomy = viewer(module.taxonomy)
 

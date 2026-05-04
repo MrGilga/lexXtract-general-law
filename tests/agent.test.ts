@@ -1,5 +1,5 @@
 import { mkRunner } from "../controller/agent_functions";
-import { createModule, db } from "../controller/app";
+import { createModule, db } from "../controller/module";
 
 console.log("Running agent tests")
 

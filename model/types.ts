@@ -36,6 +36,7 @@ export type FunctionDef = {
 
 
 export type Module = {
+  path: ModPath,
   db: <T extends JsonData>(key:string, pattern:Pattern)=>Promise<Stored<T>>,
   taxonomy: Stored<Taxonomy>
   documents: Stored<{[key:string]: string}>,
