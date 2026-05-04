@@ -6,7 +6,7 @@ import { LocalStored } from "../model/helpers";
 import { chat, localApiKey } from "../controller/request";
 import type { JsonData, JSONSchema, Taxonomy } from "../model/json";
 import { ModPath, type FunctionDef, type Module } from "../model/types";
-import { background, body, button, color, display, div, errorpopup, h2, h3, height, input, margin, p, padding, popup, pre, span, style, table, td, textarea, tr, type HTMLArg } from "./html";
+import { body, button, color, display, div, errorpopup, h2, h3, height, input, margin, p, padding, popup, pre, span, style, table, td, textarea, tr, type HTMLArg } from "./html";
 import { jsonView, viewer } from "./viewer";
 import { cost_tracker, mkAgent } from "./agent";
 import { fill, fromSchema, SchemaPattern, type Pattern } from "../model/pattern";
@@ -53,7 +53,7 @@ let loadUser = async ()=>{
   const show_module = async (mod:ModPath) => {
     console.log("Loading module", mod)
 
-    let module = await createModule(mod, show_module);
+    let module = await createModule(mod);
 
     const Taxonomy = viewer(module.taxonomy)
 
@@ -276,6 +276,13 @@ let loadUser = async ()=>{
           setTimeout(() => {share.textContent = "🔗share"}, 1000)
           });
 
+    let share_local = headbutton("🔗sharelocal", ()=>{
+      navigator.clipboard.writeText(window.origin+"/lexXtract-general-law/"+"?module="+encodeURIComponent(JSON.stringify(mod)))
+      share_local.textContent = "✅copied!"
+      setTimeout(() => {share_local.textContent = "🔗share"}, 1000)
+      });
+
+
     let pickmod = headbutton("📂pick", async ()=>
       {
         let mods = await module_list.get()
@@ -313,7 +320,7 @@ let loadUser = async ()=>{
       div(
         storedisplay,
         h2("lexxtract : " + (mod.owner == db.userid ? "" : mod.owner + " / ") + (mod.name || "unnamed module"),
-        share, pickmod, addmod,
+        share, window.origin.includes("localhost") ? share_local : [], pickmod, addmod,
       ),
       ),
       div(

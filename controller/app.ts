@@ -8,7 +8,7 @@ import { ModPath, type FunctionDef, type Module } from "../model/types";
 export const db = await RemoteDB()
 
 
-export const createModule = async (mod: ModPath, show_module: (mod:ModPath)=>void ): Promise<Module> => {
+export const createModule = async (mod: ModPath ): Promise<Module> => {
   let module_list = await db.get<ModPath[]>("modules", [ModPath])
   if (!module_list.get().map(x=>JSON.stringify(x)).includes(JSON.stringify(mod))) module_list.set([...module_list.get(), mod])
   let modState: Stored<any>[] = []
