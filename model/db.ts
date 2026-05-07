@@ -1,21 +1,10 @@
-// import { hash as crypto } from "crypto"
 import { LocalStored, storage } from "./helpers"
-import { stringify, type JsonData } from "./json"
+import {  type JsonData } from "./types"
 import { DbConnection, type ErrorContext, type SubscriptionEventContext } from "./module_bindings"
 import { fill, format, toSchema, validate, type Pattern } from "./pattern"
+import { hash } from "./hash"
 
-// export const hash = (s:string) => crypto("sha1", s)
 
-export const hash = (str:string)=> {
-
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return Math.abs(hash).toString(36); // Convert to base36 string
-}
 
 
 
@@ -23,9 +12,9 @@ export type Stored <T extends JsonData> = {
   key:string,
   pattern: Pattern,
   get: ()=> T,
-  set: (data:T)=>Promise<void>,
+  set: (data:T)=>void,
   onupdate: (listener:()=>void)=>void
-  update: (updater: (data:T)=>T | Promise<T> | void) => Promise<void>
+  update: (updater: (data:T)=>T | Promise<T> | void) => void
 }
 
 export type DB = {
@@ -34,6 +23,7 @@ export type DB = {
   changePassword(newPassword:string):Promise<void>
   disconnect(): void
   get<T extends JsonData>(key:string, pattern:Pattern, owner?:string): Promise<Stored<T>>
+  upsert<T extends JsonData>(key:string, pattern:Pattern, data:T, owner?:string): Stored<T>
   saving: number,
 }
 
@@ -66,9 +56,170 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
       }else throw new Error("error signing up")
     }
 
-    const hot_cache = new Map<string, Stored<JsonData>>()
-    
+    function _get(owner:string, key:string): Promise<JsonData>{
+      return new Promise((rs, rj)=>{
+        let sub = c.subscriptionBuilder()
+        .onApplied((c: SubscriptionEventContext)=>{
+          let r= c.db.storage.owner_key.find(mkkey(owner, key))
+          if (!r) return rs(null)
+          sub.unsubscribe()
+          rs(JSON.parse(r.value))
+        })
+        .onError((e: ErrorContext)=>{
+          console.error("DB subscription error", e.event ?? e)
+          sub.unsubscribe()
+          rj(e.event ?? new Error("Unknown DB subscription error"))
+        })
+        .subscribe(`select * from storage where owner_key = '${mkkey(owner, key)}'`)
+      })
+    }
 
+    function _set(owner:string, key:string, value:JsonData): Promise<void>{
+      return new Promise((rs, rj)=>{
+        c.procedures.setitem({owner, passhash: pwd(), key, value: JSON.stringify(value)})
+        .then((r)=>{
+          if (r.tag != "Success"){throw new Error("Failed to set item in DB: " + JSON.stringify(r))}
+          rs()
+        }).catch(e=>{
+          console.error("DB setitem error", e)
+          rj(e)
+        })
+      })
+    }
+
+
+    const hot_cache = new Map<string, Stored<JsonData>>()
+
+    // async function get<T extends JsonData>  (key: string, pattern: Pattern, owner?: string) {
+    //   owner ||= db.userid
+    //   let owner_key = mkkey(owner, key)
+    //   if (!hot_cache.has(owner_key)){
+    //     // let cache:T = await new Promise<T>((rs, rj)=>{
+    //     //   let sub = c.subscriptionBuilder()
+    //     //   .onApplied((c: SubscriptionEventContext)=>{
+    //     //     let r= c.db.storage.owner_key.find(owner_key)
+    //     //     if (!r) return rs(fill(pattern) as T)
+    //     //     let val = JSON.parse(r.value) as T
+    //     //     try{validate(pattern, val)
+    //     //     }catch(e){
+    //     //       val = fill(pattern) as T
+    //     //     }
+    //     //     sub.unsubscribe()
+    //     //     rs(val)
+    //     //   })
+    //     //   .onError((e: ErrorContext)=>{
+    //     //     console.error("DB subscription error", e.event ?? e)
+    //     //     sub.unsubscribe()
+    //     //     rj(e.event ?? new Error("Unknown DB subscription error"))
+    //     //   })
+    //     //   .subscribe(`select * from storage where owner_key = '${owner_key}'`)
+    //     // })
+
+    //     let cache:T = await _get(owner, key)
+    //       .then(val=>{
+    //         try{
+    //           validate(pattern, val)
+    //         }catch(e){
+    //           val = fill(pattern) as T
+    //         }
+    //         return val as T
+    //       })
+
+    //     let cacheS = JSON.stringify(cache)
+
+    //     const listeners: (()=>void)[] = []
+    //     const set = async (data:T) =>{
+    //       let newS = JSON.stringify(data)
+    //       if (cacheS== newS){return}
+    //       validate(pattern, data)
+    //       cache = data as T
+    //       cacheS = newS
+    //       listeners.forEach(l=>l())
+    //       db.saving++;
+    //       await c.procedures.setitem({owner, passhash: pwd(), key, value: JSON.stringify(data)})
+    //       .then((r)=>{
+    //         db.saving--;
+    //         if (r.tag != "Success"){throw new Error("Failed to set item in DB: " + JSON.stringify(r))}
+    //       })
+    //     }
+
+    //     let stored : Stored<T> =  {
+    //       key, pattern, get: ()=>cache, set,
+    //       update: async x=> {
+    //         let p = await x(cache)
+    //         if (p!=undefined) set(p)
+    //       },onupdate: f=>{
+    //         console.log("added listener", owner_key)
+    //         listeners.push(f)}
+    //     }
+    //     hot_cache.set(owner_key, stored as any as Stored<JsonData>)
+    //   }
+    //   return hot_cache.get(owner_key) as any as Stored<T>
+    // };
+
+    function mkStored<T extends JsonData>(key:string, pattern:Pattern, value:T, owner?:string): Stored<T>{
+      try{
+        validate(pattern, value)
+      }catch(e){
+        value = fill(pattern) as T
+      }
+
+      let cacheS = JSON.stringify(value)
+
+      const listeners: (()=>void)[] = []
+      const set = async (data:T) =>{
+        let newS = JSON.stringify(data)
+        if (cacheS== newS){return}
+        validate(pattern, data)
+        value = data as T
+        cacheS = newS
+        listeners.forEach(l=>l())
+        db.saving++;
+        await c.procedures.setitem({owner: owner ?? db.userid, passhash: pwd(), key, value: JSON.stringify(data)})
+        .then((r)=>{
+          db.saving--;
+          if (r.tag != "Success"){throw new Error("Failed to set item in DB: " + JSON.stringify(r))}
+        })
+      }
+      
+      return  {
+        key, pattern, get: ()=>value, set,
+        update: async x=> {
+          let p = await x(value)
+          if (p!=undefined) set(p)
+        },onupdate: f=>{
+          console.log("added listener", owner ?? db.userid, key)
+          listeners.push(f)}
+      }
+    }
+
+
+    const get = async <T extends JsonData> (key:string, pattern:Pattern, owner?:string) => {
+      owner ||= db.userid
+      let owner_key = mkkey(owner, key)
+      if (hot_cache.has(owner_key)){
+        return hot_cache.get(owner_key) as any as Stored<T>
+      }else{
+        let val = await _get(owner, key)
+        let stored = mkStored(key, pattern, val as T, owner)
+        hot_cache.set(owner_key, stored as any as Stored<JsonData>)
+        return stored
+      }
+    }
+
+    const upsert =  <T extends JsonData>(key:string, pattern:Pattern, data:T, owner?:string): Stored<T> => {
+      owner ||= db.userid
+      let owner_key = mkkey(owner, key)
+      if (hot_cache.has(owner_key)){
+        let stored = hot_cache.get(owner_key) as any as Stored<T>
+        stored.set(data)
+        return stored
+      }else{
+        let stored = mkStored(key, pattern, data, owner)
+        hot_cache.set(owner_key, stored as any as Stored<JsonData>)
+        return stored
+      }
+    }
 
     let db:DB = {
       userid: localUser.get().userid,
@@ -84,64 +235,7 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
         if (res.tag != "Success") throw new Error("Failed to change password")
         signup({userid: db.userid, passhash: newhash})
       },
-
-      async get<T extends JsonData>  (key: string, pattern: Pattern, owner?: string) {
-        // let schema_key = key + hash(stringify(toSchema(pattern)))
-        owner ||= db.userid
-        let owner_key = mkkey(owner, key)
-        if (!hot_cache.has(owner_key)){
-          let cache:T = await new Promise<T>((rs, rj)=>{
-            let sub = c.subscriptionBuilder()
-            .onApplied((c: SubscriptionEventContext)=>{
-              let r= c.db.storage.owner_key.find(owner_key)
-              if (!r) return rs(fill(pattern) as T)
-              let val = JSON.parse(r.value) as T
-              try{validate(pattern, val)
-              }catch(e){
-                val = fill(pattern) as T
-              }
-              sub.unsubscribe()
-              rs(val)
-            })
-            .onError((e: ErrorContext)=>{
-              console.error("DB subscription error", e.event ?? e)
-              sub.unsubscribe()
-              rj(e.event ?? new Error("Unknown DB subscription error"))
-            })
-            .subscribe(`select * from storage where owner_key = '${owner_key}'`)
-          })
-
-          let cacheS = JSON.stringify(cache)
-
-          const listeners: (()=>void)[] = []
-          const set = async (data:T) =>{
-            let newS = JSON.stringify(data)
-            if (cacheS== newS){return}
-            validate(pattern, data)
-            cache = data as T
-            cacheS = newS
-            listeners.forEach(l=>l())
-            db.saving++;
-            await c.procedures.setitem({owner, passhash: pwd(), key, value: JSON.stringify(data)})
-            .then((r)=>{
-              db.saving--;
-              if (r.tag != "Success"){throw new Error("Failed to set item in DB: " + JSON.stringify(r))}
-            })
-          }
-
-          let stored : Stored<T> =  {
-            key, pattern, get: ()=>cache, set,
-            update: async x=> {
-              let p = await x(cache)
-              if (p!=undefined) set(p)
-            },onupdate: f=>{
-              console.log("added listener", owner_key)
-              listeners.push(f)}
-          }
-          hot_cache.set(owner_key, stored as any as Stored<JsonData>)
-        }
-        return hot_cache.get(owner_key) as any as Stored<T>
-      }
+      get, upsert
     }
     db.signup(localUser.get()).then(()=>res(db))
     .catch(()=>{

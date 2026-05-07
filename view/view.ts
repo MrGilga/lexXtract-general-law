@@ -1,15 +1,19 @@
-import { FunctionDefPattern, mkRunner } from "../controller/agent_functions";
-import { createModule, db  } from "../controller/module";
+import  type { FunctionDef, Module, JsonData, JSONSchema, Taxonomy } from "../model/types";
+
+import { type ModPath } from "../model/types";
+
+import { FunctionDefPattern, mkRunner } from "../controller/agent";
+import { createModule, db, ModPathPattern  } from "../controller/module";
 import { randUser, type Stored } from "../model/db";
-import { hash } from "../model/db";
+import { hash } from "../model/hash";
 import { LocalStored } from "../model/helpers";
-import { chat, localApiKey } from "../controller/request";
-import type { JsonData, JSONSchema, Taxonomy } from "../model/json";
-import { ModPath, type FunctionDef, type Module } from "../model/types";
-import { body, button, color, display, div, errorpopup, h2, h3, height, input, margin, p, padding, popup, pre, span, style, table, td, textarea, tr, type HTMLArg } from "./html";
-import { jsonView, viewer } from "./viewer";
-import { cost_tracker, mkAgent } from "./agent";
-import { fill, fromSchema, SchemaPattern, type Pattern } from "../model/pattern";
+import { localApiKey } from "../controller/request";
+import { body, button, color, div, errorpopup, h2, h3, input, p, popup, pre, span, style, table, td, tr } from "./html";
+import { jsonView, viewer } from "./json";
+import { fill, fromSchema, type Pattern } from "../model/pattern";
+import { cost_tracker } from "../controller/agent";
+import { mkAgent } from "./agent";
+import { blake3Hex } from "../model/hash";
 
 let locstring = location.href.split("?")[0] || ""
 
@@ -23,7 +27,7 @@ location.search.split("&").forEach(param=>{
     try {
       urlrequest = JSON.parse(decodeURIComponent(value)) as ModPath;
       console.log("Module request from URL:", urlrequest)
-      // location.search = ""
+
     }
     catch(e) {console.error("Failed to parse module from URL", e)}
   }
@@ -43,9 +47,9 @@ let accountsettings = {
 let loadUser = async ()=>{
   console.log("Loading user...")
 
-  let module_list = await db.get<ModPath[]>("modules", [ModPath])
+  let module_list = await db.get<ModPath[]>("modules", [ModPathPattern])
   console.log("Module list:", module_list.get())
-  let current_module = await db.get<ModPath>("current_module", ModPath)
+  let current_module = await db.get<ModPath>("current_module", ModPathPattern)
   console.log(current_module.get())
 
 
@@ -122,7 +126,7 @@ let loadUser = async ()=>{
             }}))
           ),
         ),
-        p("usage:", cost_tracker.get().total)
+        p("usage: ", cost_tracker),
       ))
     }
     mksettings()
@@ -150,7 +154,8 @@ let loadUser = async ()=>{
                   viewer({
                     get: ()=>args,
                     set: async (a:{[par:string]:JsonData})=>{args = a},
-                    pattern: fromSchema(argsSchema)
+                    pattern: fromSchema(argsSchema),
+                    // onupdate: ()
                   }),
                   button("execute", {
                     onclick:async ()=>{
@@ -355,4 +360,5 @@ let loadUser = async ()=>{
 if (typeof window !== "undefined"){
   loadUser()
 }
+
 

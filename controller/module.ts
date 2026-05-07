@@ -1,15 +1,20 @@
-import { default_functions, FunctionDefPattern } from "./agent_functions";
+import { default_functions } from "./functions";
 import { RemoteDB, type Stored } from "../model/db";
 import { TaxonomyPattern, type Pattern } from "../model/pattern";
-import type { JsonData, Taxonomy } from "../model/json";
-import { ModPath, type FunctionDef, type Module } from "../model/types";
+import type { JsonData, Taxonomy } from "../model/types";
+import { type ModPath , type FunctionDef, type Module } from "../model/types";
+import { FunctionDefPattern } from "./agent";
 
 
 export const db = await RemoteDB()
+export const ModPathPattern:Pattern = {
+  owner: String,
+  name: String,
+}
 
 
 export const createModule = async (path: ModPath, tryCopy : (callback:()=>Promise<ModPath>)=>void ): Promise<Module> => {
-  let module_list = await db.get<ModPath[]>("modules", [ModPath])
+  let module_list = await db.get<ModPath[]>("modules", [ModPathPattern])
   if (!module_list.get().map(x=>JSON.stringify(x)).includes(JSON.stringify(path))) module_list.set([...module_list.get(), path])
   let modState: Stored<any>[] = []
   let mod_db = async  <T extends JsonData> (key:string, pattern:Pattern) => {
@@ -29,15 +34,16 @@ export const createModule = async (path: ModPath, tryCopy : (callback:()=>Promis
     return st
   }
 
-  const [taxonomy, extraction, documents, functions, prompt] = await Promise.all([
+  const [taxonomy, extraction, documents, functions, prompt, agents] = await Promise.all([
     mod_db<Taxonomy>("taxonomy", TaxonomyPattern),
     mod_db<JsonData>("extraction", {"[key:string]": {"[key:string]": {"[key:string]": {depiction: String, content: String}}}}),
     mod_db<{[key:string]: string}>("documents", {"[key:string]": String}),
     mod_db<{[key:string]: FunctionDef}>("functions", {"[key:string]": FunctionDefPattern}),
-    mod_db<string>("prompt", String)
+    mod_db<string>("prompt", String),
+    mod_db<string[]>("agents", [String])
   ])
 
-  const module: Module ={db: mod_db,functions,taxonomy,extraction,documents,prompt,path}
+  const module: Module ={db: mod_db,functions,taxonomy,extraction,documents,prompt,path, agents}
   if (path.owner == db.userid) await module.functions.set(default_functions)
   return module
 }

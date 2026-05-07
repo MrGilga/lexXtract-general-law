@@ -1,4 +1,7 @@
-import { stringify, type JsonData, type JSONSchema } from "./json"
+
+import { stringify } from "./json"
+import type { JsonData, JSONSchema } from "./types"
+
 
 type ConstPattern = string | number | boolean | null
 type PrimitivePattern = StringConstructor | NumberConstructor | BooleanConstructor

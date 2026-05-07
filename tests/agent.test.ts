@@ -1,5 +1,6 @@
-import { mkRunner } from "../controller/agent_functions";
+import { mkRunner } from "../controller/functions";
 import { createModule, db } from "../controller/module";
+import { runTests } from "./test";
 
 console.log("Running agent tests")
 
@@ -18,6 +19,7 @@ let addSubcategory = getfunc("addSubcategory")
 
 console.log("Initial taxonomy", await viewTaxonomy({}))
 
+
 let categories = [
   "Legal",
   "Financial",
@@ -31,12 +33,15 @@ let categories = [
   "Food"
 ]
 
-for (let cat of categories) {
-  await addCategory({categoryName: cat})
-}
 
-console.log("After all categories added", await viewTaxonomy({}))
 
+await runTests(
+  async function testAddCategory(){
+    for (let cat of categories) {
+      await addCategory({categoryName: cat})
+    }
+  }
+)
 
 
 db.disconnect()

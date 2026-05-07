@@ -1,4 +1,5 @@
 storage.db
+tmp
 node_modules
 bun.lock
 package-lock.json

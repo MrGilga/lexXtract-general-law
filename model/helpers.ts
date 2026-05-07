@@ -1,17 +1,10 @@
 // import { Role, type ExtractionItem, type Schema } from "./schemas"
-import { hash } from "./db"
+// import { hash } from "./db"
+
+import { hash } from "./hash"
 import { fill, format, validate, type Pattern } from "./pattern"
 
 let browser = typeof window !== "undefined"
-
-
-let formatTemplate = (template:string, data:{[key:string]: string}):string=>{
-  Object.entries(data).forEach(([k,v])=>{
-    if (!template.includes(`{${k}}`)) throw new Error(`Placeholder {${k}} not found in template`)
-    template = template.replaceAll(`{${k}}`, v)
-  })
-  return template
-}
 
 
 export const storage = browser ?
@@ -52,16 +45,21 @@ const cache_func = <T extends Function>  (f:T ):T =>{
 export type LocalStored<T> = {
   get:()=>T,
   set:(val:T)=>void,
+  onupdate:(callback:()=>void)=>void
 }
 export const LocalStored = <T>(key:string, pattern:Pattern, default_value?:T):LocalStored<T> =>{
   key += hash(format(pattern))
   default_value ||= fill(pattern) as T
   validate(pattern, default_value as any)
+  let listeners= new Set<()=>void>()
 
   const set = (val:T)=> {
     validate(pattern, val as any)
     storage.setItem(key, JSON.stringify(val))
+    listeners.forEach(f=>f())
   }
+
+  const onupdate = (callback:()=>void)=> listeners.add(callback)
 
   return {
     get:()=>{
@@ -70,5 +68,6 @@ export const LocalStored = <T>(key:string, pattern:Pattern, default_value?:T):Lo
       return JSON.parse(val) as T
     },
     set,
+    onupdate
   }
 }

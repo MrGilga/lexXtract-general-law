@@ -6,15 +6,15 @@ import { assert, assertEqualJSON, runTests } from "./test";
 
 await runTests(
   async function testStore(){
-    let item = db.get("test", {content: String})
+    let item =  await db.get("test", {content: String})
 
-    await item.set({content:"hello"})
-    let val = await item.get()
+    item.set({content:"hello"})
+    let val = item.get()
     assertEqualJSON(val, {content:"hello"})
   },
 
   async function testItemsSync(){
-    let item = db.get<{synced: string}>("testSyncItem", {synced: String})
+    let item = await db.get<{synced: string}>("testSyncItem", {synced: String})
     
     let innerval = {synced: "sync0"}
     let updated = false
@@ -25,8 +25,8 @@ await runTests(
     assert(updated, "Update callback was not called")
   },
   async function testItemsCrossSync(){
-    let item1 = db.get<{synced: string}>("testCrossSyncItem", {synced: String})
-    let item2 = db.get<{synced: string}>("testCrossSyncItem", {synced: String})
+    let item1 = await db.get<{synced: string}>("testCrossSyncItem", {synced: String})
+    let item2 = await db.get<{synced: string}>("testCrossSyncItem", {synced: String})
 
     let updated = false
     item2.onupdate(()=>{

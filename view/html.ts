@@ -1,3 +1,6 @@
+import type { Stored } from "../model/db";
+import type { LocalStored } from "../model/helpers";
+import type { JsonData } from "../model/types";
 
 export const body = document.body;
 
@@ -111,7 +114,7 @@ export const htmlElement = (tag:string, text:string, cls:string = "", args?:Part
 
 
 
-export type HTMLArg = string | number | HTMLElement | Partial<Record<htmlKey, any>>  | Promise<HTMLArg> | HTMLArg[]
+export type HTMLArg = string | number | HTMLElement | Partial<Record<htmlKey, any>>  | Promise<HTMLArg> | HTMLArg[] | Stored<any> | LocalStored<any>
 
 
 export const html = (tag:string, ...cs:HTMLArg[]):HTMLElement=>{
@@ -131,6 +134,16 @@ export const html = (tag:string, ...cs:HTMLArg[]):HTMLElement=>{
     }
     else if (arg instanceof HTMLElement) children.push(arg)
     else if (arg instanceof Array) arg.forEach(add_arg)
+    else if ('get' in arg && typeof arg.get === 'function') {
+      const el = span()
+      el.textContent = String(arg.get())
+      children.push(el)
+      if ('onupdate' in arg && typeof arg.onupdate === 'function') {
+        arg.onupdate(()=>{
+          el.textContent = String(arg.get())
+        })
+      }
+    }
     else args = {...args, ...arg}
   }
   for (let arg of cs){

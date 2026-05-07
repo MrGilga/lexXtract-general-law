@@ -1,6 +1,7 @@
 import { assert, assertEqualJSON, expectError, runTests } from "./test";
 import { format, fromSchema, validate, type Pattern } from "../model/pattern";
-import type { JSONSchema } from "../model/json";
+import type { JSONSchema } from "../model/types";
+
 
 runTests(
 

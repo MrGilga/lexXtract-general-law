@@ -1,12 +1,12 @@
 
-import { get_path, set_path, stringify, type JsonData } from "../model/json";
-import { button, color, div, errorpopup, h2, h3, p, padding, popup, pre, span, style, textarea, width } from "./html";
-import { ANY, format, validate, type Pattern } from "../model/pattern";
+import { get_path, set_path } from "../model/json";
+import { button, color, div, h2, h3, p, padding, popup, pre, span, style, textarea, width } from "./html";
+import { validate, type Pattern } from "../model/pattern";
+import type { JsonData } from "../model/types";
 
 
 type Path = (string | number)[]
 type View = (d:JsonData, path?: Path, onclick?: (path:Path)=>void)=>HTMLElement
-
 
 export const jsonView : View = (d, path = [], onclick_):HTMLElement =>{
 
@@ -26,7 +26,9 @@ export const jsonView : View = (d, path = [], onclick_):HTMLElement =>{
     }))
   }
   if (typeof d == "string" || typeof d == "number" || d == null) {
-    return mkclickable(div(style({color: typeof d == "string" ? color.color : color.blue, margin , whiteSpace:"pre-wrap"}),String(d)))
+    return mkclickable(div(style({color: typeof d == "string" ? color.color : color.blue, margin , whiteSpace:"pre-wrap"}),
+    d ? String(d) : "<empty>"
+  ))
   }
   if (path.length == 0 && Object.keys(d).length == 0) return mkclickable(div("{}", style({color:color.gray, fontStyle:"italic", margin})))
   return div(...Object.entries(d).map(([k,v])=>{
@@ -58,27 +60,10 @@ export const jsonView : View = (d, path = [], onclick_):HTMLElement =>{
 }
 
 
-let sample = {
-  array: [1,2,3],
-  textArray: ["Bob","Alice","Eve"],
-  object: {a:1, b:"text", c:{nested: "value"}},
-  text: "hello",
-  longText: "Lorem ipsum dolor sit amet,\nconsectetur adipiscing elit.\nSed do eiusmod tempor incididunt\nsut labore et dolore magna aliqua.",
-  number: 42,
-  empty_array: [],
-  empty_object: {},
-  empty_string: "",
-  null_value: null,
-}
-
-
-let listener = () => {}
-
-
 export const viewer = <T extends JsonData>(
   data: {
     get: ()=>T,
-    set: (t:T)=>Promise<void>,
+    set: (t:T)=>void,
     pattern: Pattern,
     onupdate?: (f:()=>void)=>void
   },
@@ -88,7 +73,8 @@ export const viewer = <T extends JsonData>(
   let el = div("loading...")
   let update = ()=>{
     el.replaceChildren(displayfn(data.get(), [], pth=>{
-      if (!data.onupdate) return
+      console.log("path clicked", pth)
+      // if (!data.onupdate) return
       let d = get_path(data.get(), pth) as T
       let astext = typeof d == "string"
       let newd = d
@@ -115,7 +101,7 @@ export const viewer = <T extends JsonData>(
         h3("Path: "+pth.join(".")),
         ta,
         info,
-        button("save", {onclick:()=>{data.set(newd); pop.remove()}})
+        button("save", {onclick:()=>{data.set(newd); update(); pop.remove()}})
       )
     }))
   }
@@ -128,19 +114,3 @@ export const viewer = <T extends JsonData>(
 
 }
 
-
-
-//  popup(
-//   h2("This is a demo of the lexXtract json interface."),
-//   div(
-//     viewer(
-//       {
-//         get: ()=>sample,
-//         set: async (v)=>{sample = v; listener()},
-//         onupdate: (f)=> listener = f,
-//         pattern: ANY
-//       },
-//       jsonView
-//     )
-//   )
-// )
