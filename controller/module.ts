@@ -26,6 +26,7 @@ export const createModule = async (path: ModPath, tryCopy : (callback:()=>Promis
   if (!module_list.get().map(x=>JSON.stringify(x)).includes(JSON.stringify(path))) module_list.set([...module_list.get(), path])
   let modState: Stored<any>[] = []
   let mod_db = async  <T extends JsonData> (key:string, pattern:Pattern, args: {upsertValue?:T, defaultValue?:T} = {}) => {
+    console.log("MODDB request", {key, pattern, args})
     let st = await db.get<T>(path.name+":"+key, pattern, {owner: path.owner, ...args})
     if (path.owner != db.userid) st.set = async ()=>{
       tryCopy(()=> createModule({owner: db.userid, name: path.name}, tryCopy)

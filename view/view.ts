@@ -19,7 +19,7 @@ let urlrequest:ModPath | null = null
 
 location.search.split("&").forEach(param=>{
   if (param.startsWith("?")) param = param.slice(1)
-  // console.log("URL param:", param)
+  console.log("URL param:", param)
   let [key, value] = param.split("=")
   if (key == "module" && value){
     try {
@@ -46,10 +46,13 @@ let loadUser = async ()=>{
 
 
   let module_list = await db.get<ModPath[]>("modules", [ModPathPattern])
-  let current_module = await db.get<ModPath>("current_module", ModPathPattern)
 
-  
+  let current_module = await db.get<ModPath>("current_module", ModPathPattern ,{ upsertValue: urlrequest ? urlrequest : undefined } )
+  console.log("Current module:", current_module.get())
+
   const show_module = async (mod:ModPath) => {
+
+    console.log("Loading module", mod.owner, mod.name)
 
     let module = await createModule(mod, mkcopy=>{
       let pop = popup(
@@ -287,7 +290,7 @@ let loadUser = async ()=>{
 
     let pickmod = headbutton("📂pick", async ()=>
       {
-        let mods = await module_list.get()
+        let mods = module_list.get()
         let pop = popup(
           h3("choose a module"),
           mods.filter(m=>m.owner != "" && m.name != "").map(m=>{
@@ -338,14 +341,7 @@ let loadUser = async ()=>{
     )
   }
 
-
-
-
-  show_module(
-    current_module.get()
-  )
-  if (urlrequest) {current_module.set(urlrequest); show_module(current_module.get())}
-
+  show_module(current_module.get())
   current_module.onupdate(()=>show_module(current_module.get()))
 }
 

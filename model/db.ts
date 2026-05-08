@@ -24,7 +24,7 @@ export type DB = {
     {
       owner?:string,
       defaultValue?:T,
-      upsertVal?: T
+      upsertValue?: T
     },
   ): Promise<Stored<T>>
   saving: number,
@@ -115,12 +115,11 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
         onupdate: f=>{listeners.push(f)}
       }
 
-      hot_cache.set(mkkey(owner ?? db.userid, key), res as any as Stored<JsonData>)
-
       return res
     }
 
     const get = async <T extends JsonData> (key:string, pattern:Pattern, args: {owner?:string, upsertValue?: T, defaultValue?:T} = {}) => {
+      console.log("DB get request", {key, pattern, args})
       let owner = args.owner || db.userid
       let owner_key = mkkey(owner, key)
       if (!hot_cache.has(owner_key)){
@@ -131,6 +130,9 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
       if (args.upsertValue != undefined) {
         console.log("upserting value for", owner, key, "value:", args.upsertValue)
         res.set(args.upsertValue)}
+      else{
+        console.log("no upsert value for", owner, key)
+      }
       return res
     }
 
