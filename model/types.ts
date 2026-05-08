@@ -30,12 +30,34 @@ export type FunctionDef = {
 
 
 
+
+export type Extraction = {
+  [category: string]: {
+    [subcategory: string]: {
+      [itemTitle: string]: {
+        depiction: string,
+        links: {
+          title: string,
+          category: string,
+          subcategory: string,
+          item: string,
+        }[],
+        sources: {
+          documentId: string,
+          excerpt: string,
+        }
+      }
+    }
+  }
+}
+
+
 export type Module = {
   path: ModPath,
   db: <T extends JsonData>(key:string, pattern:Pattern, args?: {upsertValue?:T, defaultValue?:T})=>Promise<Stored<T>>,
   taxonomy: Stored<Taxonomy>
   documents: Stored<{[key:string]: string}>,
-  extraction: Stored<JsonData>,
+  extraction: Stored<Extraction>,
   functions: Stored<{[key:string]: FunctionDef}>,
   prompt: Stored<string>,
   agents: Stored<string[]>
@@ -81,7 +103,6 @@ export type Message = {role: "user" | "assistant" | "system", content: string}
 export type Agent = {
   id: string,
   tools: string[],
-  // msgs : Message[],
   msgs_ctr: number
 }
 

@@ -20,6 +20,14 @@ export const AgentPattern : Pattern = {
   msgs_ctr: Number,
 }
 
+
+export type AgentTemplate = {
+  name: string,
+  prompt: string,
+  tools: string[]
+}
+
+
 const _get_agent = (mod:Module, agent_id: string) => mod.db<Agent>(agent_id, AgentPattern)
 const _get_msg = (mod:Module, agent_id: string, msg_ctr: number, upsertValue?: Message) => mod.db<Message>(agent_id+"_msg_"+msg_ctr, MessagePattern, {upsertValue})
 
@@ -44,9 +52,12 @@ export const msgAgent = async (mod: Module, agent_id: string, msg: string, role:
   runagent(mod, agent_id)
 }
 
+export const runningAgents = LocalStored<string[]>("running_agents", [String], [])
+runningAgents.set([])
+
 const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> => {
   let ag = await _get_agent(mod, agent_id)
-  ag.update(a=>({...a, tools: Object.keys(mod.functions.get())}));
+  // ag.update(a=>({...a, tools: Object.keys(mod.functions.get())}));
   let hist: Message[] = await Promise.all( Array.from({length:ag.get().msgs_ctr}).map((_,i)=>_get_msg(mod, agent_id, i).then(x=>x.get())))
   let tools: ModelTool[] = Object.entries(mod.functions.get()).filter(([name])=> ag.get().tools.includes(name)).map(([name, def])=>(
     {
@@ -56,6 +67,7 @@ const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> =>
       parameters: {type: "object", properties: def.parameters, required: Object.keys(def.parameters)},
     } as ModelTool
   ))
+  runningAgents.update(a=> a.includes(agent_id) ? a : [...a, agent_id])
   return chat(hist, "moonshotai/kimi-k2.6", tools).then(async r=>{
     cost_tracker.set(cost_tracker.get() + r.cost)
     let proms: Promise<void>[] = [];
@@ -74,8 +86,9 @@ const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> =>
       
     }
     await Promise.all(proms)
+    runningAgents.update(a=> a.filter(id=> id != agent_id))
     if (proms.length) return await runagent(mod, agent_id)
-    else return r.messages[r.messages.length-1]!
+    else {return r.messages[r.messages.length-1]!}
   })
 }
 

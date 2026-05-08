@@ -69,7 +69,6 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
           rs(JSON.parse(r.value))
         })
         .onError((e: ErrorContext)=>{
-          console.error("DB subscription error", e.event ?? e)
           sub.unsubscribe()
           rj(e.event ?? new Error("Unknown DB subscription error"))
         })
@@ -119,7 +118,6 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
     }
 
     const get = async <T extends JsonData> (key:string, pattern:Pattern, args: {owner?:string, upsertValue?: T, defaultValue?:T} = {}) => {
-      console.log("DB get request", {key, pattern, args})
       let owner = args.owner || db.userid
       let owner_key = mkkey(owner, key)
       if (!hot_cache.has(owner_key)){
@@ -127,12 +125,7 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
         hot_cache.set(owner_key, mkStored(key, pattern, value, owner) as any as Stored<JsonData>)
       }
       let res = hot_cache.get(owner_key)! as any as Stored<T>
-      if (args.upsertValue != undefined) {
-        console.log("upserting value for", owner, key, "value:", args.upsertValue)
-        res.set(args.upsertValue)}
-      else{
-        console.log("no upsert value for", owner, key)
-      }
+      if (args.upsertValue != undefined) res.set(args.upsertValue)
       return res
     }
 

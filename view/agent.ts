@@ -1,4 +1,5 @@
-import { msgAgent, startAgent, viewAgent } from "../controller/agent"
+import {  msgAgent, runningAgents, startAgent, viewAgent } from "../controller/agent"
+import { agentCoordinator } from "../controller/functions"
 import type { Module } from "../model/types"
 import { button, color, div, h2, input, p, popup, style } from "./html"
 import { jsonView, viewer } from "./json"
@@ -10,11 +11,24 @@ export const mkAgent = async (module:Module)=>{
 
   let chats = await  module.db<string[]>("past_agents", [String])
   let newChat = async ()=>
-    startAgent(module, module.prompt.get() || "", Object.keys(module.functions.get()))
+    startAgent(module, agentCoordinator.prompt, agentCoordinator.tools)
     .then(n=> chats.update(c=>[...c, n]))
   let chatel = div(style({
     marginBottom: "3em",
   }))
+  let running = mkButton("", ()=>{})
+  // runningAgents.onupdate(()=>{
+  let showrunner = ()=>{
+    running.textContent = `running agents: ${runningAgents.get().length}`
+    if (runningAgents.get().length>0){
+      running.style.animation = "pulse 2s infinite"
+    }else{
+      running.style.animation = "none"
+    }
+  }
+  showrunner()
+  runningAgents.onupdate(showrunner)
+  // running.textContent = `running agents: ${runningAgents.get().length}`
   let panel = div(
     style({
       position: "sticky",
@@ -24,12 +38,7 @@ export const mkAgent = async (module:Module)=>{
       padding: "1em",
     }),
     mkButton("new chat", newChat),
-    mkButton("settings", ()=>popup(div(
-      h2("agent settings"),
-      p("prompt:"),
-      viewer(module.prompt),
-      p("functions:"),
-    )))
+    running,
   )
 
   let el = div( panel, chatel)
@@ -44,19 +53,26 @@ export const mkAgent = async (module:Module)=>{
     viewAgent(module,id, msg=>{
       loader.remove()
       let d = msg.get()
+      
       let role = ("role" in d) ? d.role : "output"
-      let m = div(
+      let m = div()
+      chatel.append(m)
+
+      
+      let showm = () => m.replaceWith(div(
         style({
           fontWeight: role == "user" ? "bold" : "normal",
-          // display: role == "system" ? "none" : "block",
+          color: role == "system" ? color.gray : color.color,
           padding: "0.5em",
           paddingLeft: role == "user" ? "0" : "1em",
 
         }),
-        ("content" in d ? d.content : d.type == "function_call" ? `[function call: ${d.name}]` : `[function output: ${d.output.slice(0,100)}]`),
+        ("content" in d ? (role == "system" ? "[system]" : d.content) : d.type == "function_call" ? `[function call: ${d.name}]` : `[function output: ${d.output.slice(0,100)}]`),
         {onclick:()=>popup(div(p("message content"), jsonView(d)))}
-      )
-      chatel.append(m)
+      ))
+      showm()
+      msg.onupdate(showm)
+
       hint.remove()
     })
 
