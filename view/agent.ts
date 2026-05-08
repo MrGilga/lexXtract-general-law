@@ -6,7 +6,7 @@ import { jsonView, viewer } from "./json"
 
 export const mkAgent = async (module:Module)=>{
   let mkButton = (text:string, onclick:()=>void):HTMLButtonElement=>
-    button(text,{onclick, style:{background:color.gray,border:"unset",color:color.color,padding:".5em 1em",borderRadius:".3em",cursor:"pointer",margin:"0 0.5em"} })
+    button(text,{onclick, style:{background:color.lightgray,border:"unset",color:color.color,padding:".5em 1em",borderRadius:".3em",cursor:"pointer",margin:"0 0.5em"} })
 
   let chats = await  module.db<string[]>("past_agents", [String])
   let newChat = async ()=>
@@ -60,7 +60,7 @@ export const mkAgent = async (module:Module)=>{
 
     let intake = input({placeholder:"message",
       style:{ width:"40vw", position: "fixed", bottom:"1em", fontSize:"1.1em", padding:"0.5em 1em", borderRadius:".4em", border:`4px solid ${color.gray}`, background: color.lightgray, color: color.color },
-      onkeydown: e=>{
+      onkeydown: (e:KeyboardEvent)=>{
         if (e.key == "Enter")
           msgAgent(module, id, intake.value).then(()=>{
             intake.value = ""

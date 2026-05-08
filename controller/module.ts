@@ -1,10 +1,18 @@
 import { default_functions } from "./functions";
 import { RemoteDB, type Stored } from "../model/db";
-import { TaxonomyPattern, type Pattern } from "../model/pattern";
+import { SchemaPattern, TaxonomyPattern, type Pattern } from "../model/pattern";
 import type { JsonData, Taxonomy } from "../model/types";
 import { type ModPath , type FunctionDef, type Module } from "../model/types";
-import { FunctionDefPattern } from "./agent";
 
+const CapabilityPattern: Pattern = ["taxonomy", "documents", "prompt", "functions", "extraction", "agents"]
+
+export const FunctionDefPattern: Pattern = {
+  "description?": String,
+  "reads?": [CapabilityPattern],
+  "writes?": [CapabilityPattern],
+  parameters: {"[key:string]": SchemaPattern},
+  code: String
+}
 
 export const db = await RemoteDB()
 export const ModPathPattern:Pattern = {
@@ -17,8 +25,8 @@ export const createModule = async (path: ModPath, tryCopy : (callback:()=>Promis
   let module_list = await db.get<ModPath[]>("modules", [ModPathPattern])
   if (!module_list.get().map(x=>JSON.stringify(x)).includes(JSON.stringify(path))) module_list.set([...module_list.get(), path])
   let modState: Stored<any>[] = []
-  let mod_db = async  <T extends JsonData> (key:string, pattern:Pattern) => {
-    let st = await db.get<T>(path.name+":"+key, pattern, path.owner)
+  let mod_db = async  <T extends JsonData> (key:string, pattern:Pattern, args: {upsertValue?:T, defaultValue?:T} = {}) => {
+    let st = await db.get<T>(path.name+":"+key, pattern, {owner: path.owner, ...args})
     if (path.owner != db.userid) st.set = async ()=>{
       tryCopy(()=> createModule({owner: db.userid, name: path.name}, tryCopy)
         .then(newmod=>Promise.all([
@@ -39,7 +47,7 @@ export const createModule = async (path: ModPath, tryCopy : (callback:()=>Promis
     mod_db<JsonData>("extraction", {"[key:string]": {"[key:string]": {"[key:string]": {depiction: String, content: String}}}}),
     mod_db<{[key:string]: string}>("documents", {"[key:string]": String}),
     mod_db<{[key:string]: FunctionDef}>("functions", {"[key:string]": FunctionDefPattern}),
-    mod_db<string>("prompt", String),
+    mod_db<string>("prompt", String, {defaultValue: "You are an expert text analysis assistant."}),
     mod_db<string[]>("agents", [String])
   ])
 

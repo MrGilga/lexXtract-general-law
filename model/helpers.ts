@@ -1,8 +1,10 @@
+
 // import { Role, type ExtractionItem, type Schema } from "./schemas"
 // import { hash } from "./db"
 
-import { hash } from "./hash"
-import { fill, format, validate, type Pattern } from "./pattern"
+import type { Stored } from "./db"
+import { fill, validate, type Pattern } from "./pattern"
+import type { JsonData } from "./types"
 
 let browser = typeof window !== "undefined"
 
@@ -42,32 +44,42 @@ const cache_func = <T extends Function>  (f:T ):T =>{
 }
 
 
-export type LocalStored<T> = {
-  get:()=>T,
-  set:(val:T)=>void,
-  onupdate:(callback:()=>void)=>void
-}
-export const LocalStored = <T>(key:string, pattern:Pattern, default_value?:T):LocalStored<T> =>{
-  key += hash(format(pattern))
+export const LocalStored = <T extends JsonData>(key:string, pattern:Pattern, default_value?:T):Stored<T> =>{
   default_value ||= fill(pattern) as T
   validate(pattern, default_value as any)
   let listeners= new Set<()=>void>()
-
   const set = (val:T)=> {
     validate(pattern, val as any)
-    storage.setItem(key, JSON.stringify(val))
+    let d = JSON.stringify(val)
+    if (storage.getItem(key) == d) return
+    storage.setItem(key, d)
     listeners.forEach(f=>f())
   }
 
   const onupdate = (callback:()=>void)=> listeners.add(callback)
 
-  return {
-    get:()=>{
+  const get =()=>{
       let val = storage.getItem(key)
       if (val == null || val == "null") return default_value
-      return JSON.parse(val) as T
-    },
+      let d = JSON.parse(val) as T
+      try{
+        validate(pattern, d)
+      }catch(e){
+        return default_value
+      }
+      return d
+    }
+
+  return {
+    get,
+    pattern,
+    key,
     set,
-    onupdate
+    onupdate,
+    update: async (f:(x:T)=>T|void| Promise<T>)=>{
+      let r = f(get())
+      if (r instanceof Promise) r.then(set)
+      else if (r) set(r)
+    }
   }
 }

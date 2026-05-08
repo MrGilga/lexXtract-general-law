@@ -1,9 +1,7 @@
 import  type { FunctionDef, Module, JsonData, JSONSchema, Taxonomy } from "../model/types";
-
 import { type ModPath } from "../model/types";
-
-import { FunctionDefPattern, mkRunner } from "../controller/agent";
-import { createModule, db, ModPathPattern  } from "../controller/module";
+import { mkRunner } from "../controller/agent";
+import { createModule, db, FunctionDefPattern, ModPathPattern  } from "../controller/module";
 import { randUser, type Stored } from "../model/db";
 import { hash } from "../model/hash";
 import { LocalStored } from "../model/helpers";
@@ -13,7 +11,6 @@ import { jsonView, viewer } from "./json";
 import { fill, fromSchema, type Pattern } from "../model/pattern";
 import { cost_tracker } from "../controller/agent";
 import { mkAgent } from "./agent";
-import { blake3Hex } from "../model/hash";
 
 let locstring = location.href.split("?")[0] || ""
 
@@ -240,7 +237,7 @@ let loadUser = async ()=>{
               margin:0,
               padding:".4em",
               ...(item == k ? {
-                background: color.gray,
+                background: color.lightgray,
               } : {})
             },
             onclick: ()=>renderSideBar(k)
@@ -298,7 +295,7 @@ let loadUser = async ()=>{
         let mods = await module_list.get()
         let pop = popup(
           h3("choose a module"),
-          mods.map(m=>{
+          mods.filter(m=>m.owner != "" && m.name != "").map(m=>{
             let pp =  p(
                 button('-', {onclick:()=>{
                   if (confirm("Are you sure you want to delete this module? This action cannot be undone.")){

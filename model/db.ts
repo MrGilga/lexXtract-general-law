@@ -1,7 +1,7 @@
-import { LocalStored, storage } from "./helpers"
+import { LocalStored } from "./helpers"
 import {  type JsonData } from "./types"
 import { DbConnection, type ErrorContext, type SubscriptionEventContext } from "./module_bindings"
-import { fill, format, toSchema, validate, type Pattern } from "./pattern"
+import { fill, validate, type Pattern } from "./pattern"
 import { hash } from "./hash"
 
 
@@ -22,8 +22,13 @@ export type DB = {
   userid: string,
   changePassword(newPassword:string):Promise<void>
   disconnect(): void
-  get<T extends JsonData>(key:string, pattern:Pattern, owner?:string): Promise<Stored<T>>
-  upsert<T extends JsonData>(key:string, pattern:Pattern, data:T, owner?:string): Stored<T>
+  get<T extends JsonData>(key:string, pattern:Pattern, args?:
+    {
+      owner?:string,
+      defaultValue?:T,
+      upsertVal?: T
+    },
+  ): Promise<Stored<T>>
   saving: number,
 }
 
@@ -56,12 +61,12 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
       }else throw new Error("error signing up")
     }
 
-    function _get(owner:string, key:string): Promise<JsonData>{
+    function _get(owner:string, key:string): Promise<JsonData | undefined>{
       return new Promise((rs, rj)=>{
         let sub = c.subscriptionBuilder()
         .onApplied((c: SubscriptionEventContext)=>{
           let r= c.db.storage.owner_key.find(mkkey(owner, key))
-          if (!r) return rs(null)
+          if (!r) return rs(undefined)
           sub.unsubscribe()
           rs(JSON.parse(r.value))
         })
@@ -71,19 +76,6 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
           rj(e.event ?? new Error("Unknown DB subscription error"))
         })
         .subscribe(`select * from storage where owner_key = '${mkkey(owner, key)}'`)
-      })
-    }
-
-    function _set(owner:string, key:string, value:JsonData): Promise<void>{
-      return new Promise((rs, rj)=>{
-        c.procedures.setitem({owner, passhash: pwd(), key, value: JSON.stringify(value)})
-        .then((r)=>{
-          if (r.tag != "Success"){throw new Error("Failed to set item in DB: " + JSON.stringify(r))}
-          rs()
-        }).catch(e=>{
-          console.error("DB setitem error", e)
-          rj(e)
-        })
       })
     }
 
@@ -194,13 +186,13 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
     }
 
 
-    const get = async <T extends JsonData> (key:string, pattern:Pattern, owner?:string) => {
-      owner ||= db.userid
+    const get = async <T extends JsonData> (key:string, pattern:Pattern, args: {owner?:string, upsertValue?: T, defaultValue?:T} = {}) => {
+      let owner = args.owner || db.userid
       let owner_key = mkkey(owner, key)
       if (hot_cache.has(owner_key)){
         return hot_cache.get(owner_key) as any as Stored<T>
       }else{
-        let val = await _get(owner, key)
+        let val : JsonData = args.upsertValue != undefined ? args.upsertValue : await _get(owner, key).then(v=> v ?? args.defaultValue ?? null)
         let stored = mkStored(key, pattern, val as T, owner)
         hot_cache.set(owner_key, stored as any as Stored<JsonData>)
         return stored
@@ -235,7 +227,7 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
         if (res.tag != "Success") throw new Error("Failed to change password")
         signup({userid: db.userid, passhash: newhash})
       },
-      get, upsert
+      get
     }
     db.signup(localUser.get()).then(()=>res(db))
     .catch(()=>{

@@ -7,15 +7,6 @@ import { popup } from "../view/html";
 import { jsonView } from "../view/json";
 import { chat, type ModelMessage, type ModelTool } from "./request";
 
-const CapabilityPattern: Pattern = ["taxonomy", "documents", "prompt", "functions", "extraction", "agents"]
-
-export const FunctionDefPattern: Pattern = {
-  "description?": String,
-  "reads?": [CapabilityPattern],
-  "writes?": [CapabilityPattern],
-  parameters: {"[key:string]": SchemaPattern},
-  code: String
-}
 
 
 export const MessagePattern: Pattern = [
@@ -50,24 +41,22 @@ const _get_agent = (mod:Module, agent_id: string) => mod.db<Agent>(agent_id, Age
 const _get_msg = (mod:Module, agent_id: string, msg_ctr: number) => mod.db<Message>(agent_id+"_msg_"+msg_ctr, MessagePattern)
 
 
+const _storeMessage = async (mod: Module, agent_id: string, msg: Message) => {
+  let ag = await mod.db<Agent>(agent_id, AgentPattern);
+  let ctr = ag.get().msgs_ctr;
+  // (await _get_msg(mod, agent_id, ctr)).set(msg);
+  // mod.db<Message>(agent_id+"_msg_"+ctr, MessagePattern)
+  ag.update(x=>{x.msgs_ctr = ctr+1; return x})
+  return ctr
+}
+
 export const startAgent = async (mod: Module, prompt: string, tools:string[]) =>{
   let id = "agent_" + Math.random().toString(16).slice(2)
   let ag = await _get_agent(mod, id)
   ag.set({ id, msgs_ctr: 0, tools})
-  // let resp : ModelMessage = await msgAgent(mod, id, prompt, "system")
   await _storeMessage(mod, id, {role: "system", content: prompt})
   popup("new agent:", jsonView(ag.get()))
-  // return {agent_id: id, response: ("role" in resp) ? resp.content : "Agent started. No response."}
   return id
-}
-
-
-const _storeMessage = async (mod: Module, agent_id: string, msg: Message) => {
-  let ag = await mod.db<Agent>(agent_id, AgentPattern);
-  let ctr = ag.get().msgs_ctr;
-  (await _get_msg(mod, agent_id, ctr)).set(msg);
-  ag.update(x=>{x.msgs_ctr = ctr+1; return x})
-  return ctr
 }
 
 
