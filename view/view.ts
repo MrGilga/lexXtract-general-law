@@ -1,4 +1,5 @@
 import  type { FunctionDef, Module, JsonData, JSONSchema, Taxonomy } from "../model/types";
+
 import { type ModPath } from "../model/types";
 import { mkRunner } from "../controller/agent";
 import { createModule, db, FunctionDefPattern, ModPathPattern  } from "../controller/module";
@@ -18,7 +19,7 @@ let urlrequest:ModPath | null = null
 
 location.search.split("&").forEach(param=>{
   if (param.startsWith("?")) param = param.slice(1)
-  console.log("URL param:", param)
+  // console.log("URL param:", param)
   let [key, value] = param.split("=")
   if (key == "module" && value){
     try {
@@ -36,23 +37,19 @@ let accountsettings = {
   signup : (args:{userid:string, passhash:string})=>db.signup(args).then(loadUser),
   getItem: (key:string, pattern:Pattern, owner?:string)=>{
     owner ||= db.userid
-    return db.get(key, pattern, owner)
+    return db.get(key, pattern, {owner})
   }
 }
 
 
 let loadUser = async ()=>{
-  console.log("Loading user...")
+
 
   let module_list = await db.get<ModPath[]>("modules", [ModPathPattern])
-  console.log("Module list:", module_list.get())
   let current_module = await db.get<ModPath>("current_module", ModPathPattern)
-  console.log(current_module.get())
-
 
   
   const show_module = async (mod:ModPath) => {
-    console.log("Loading module", mod)
 
     let module = await createModule(mod, mkcopy=>{
       let pop = popup(
@@ -63,9 +60,7 @@ let loadUser = async ()=>{
 
     const Taxonomy = viewer(module.taxonomy)
 
-    module.taxonomy.onupdate(()=>{
-      console.log("taxonomy updated", module.taxonomy.get())
-    })
+    // module.taxonomy.onupdate(()=>{console.log("taxonomy updated", module.taxonomy.get())})
 
 
     const Documents = div(viewer(module.documents), button("+add", {
@@ -83,6 +78,9 @@ let loadUser = async ()=>{
     let mksettings =()=> {
       let pwd = input({type:"password", placeholder:"new password"})
       let apikey = input({ type:"password", placeholder:"new API key"})
+      let usage = p("usage:")
+      cost_tracker.onupdate = () => usage.textContent = "usage: " + cost_tracker.get().toFixed(4)
+      usage.textContent = "usage: " + cost_tracker.get().toFixed(4)
       Settings.replaceChildren (div(
         table(
           style({borderSpacing: "0.5em",}),
@@ -123,7 +121,7 @@ let loadUser = async ()=>{
             }}))
           ),
         ),
-        p("usage: ", cost_tracker),
+        usage,
       ))
     }
     mksettings()
@@ -152,18 +150,16 @@ let loadUser = async ()=>{
                     get: ()=>args,
                     set: async (a:{[par:string]:JsonData})=>{args = a},
                     pattern: fromSchema(argsSchema),
-                    // onupdate: ()
                   }),
                   button("execute", {
                     onclick:async ()=>{
                       
                       try{
+                        pop.remove()
+                        pop = popup(h2("executing "+k+ "..."))
                         let res = await mkRunner(module, v)(args)
                         pop.remove()
-                        if (res !== undefined) popup(
-                          h2("result"),
-                          jsonView(res)
-                        )
+                        pop = popup(h2("result"), jsonView(res))
                       }catch(e){
                         errorpopup(e as Error)
                       }
@@ -275,7 +271,6 @@ let loadUser = async ()=>{
         storedisplay.textContent = "saving "+db.saving+" items"
       }
     },100)
-    console.log(storedisplay)
 
     let share = headbutton("🔗share", ()=>{
           navigator.clipboard.writeText("https://dkormann.github.io/lexXtract-general-law/"+"?module="+encodeURIComponent(JSON.stringify(mod)))

@@ -12,7 +12,9 @@ export const mkAgent = async (module:Module)=>{
   let newChat = async ()=>
     startAgent(module, module.prompt.get() || "", Object.keys(module.functions.get()))
     .then(n=> chats.update(c=>[...c, n]))
-  let chatel = div()
+  let chatel = div(style({
+    marginBottom: "3em",
+  }))
   let panel = div(
     style({
       position: "sticky",
@@ -35,7 +37,7 @@ export const mkAgent = async (module:Module)=>{
 
 
   let showChat = (id:string)=>{
-    console.log("showing chat", id)
+
     let loader =p("loading chat", )
     chatel.replaceChildren(loader)
     
@@ -46,7 +48,7 @@ export const mkAgent = async (module:Module)=>{
       let m = div(
         style({
           fontWeight: role == "user" ? "bold" : "normal",
-          display: role == "system" ? "none" : "block",
+          // display: role == "system" ? "none" : "block",
           padding: "0.5em",
           paddingLeft: role == "user" ? "0" : "1em",
 
@@ -61,11 +63,10 @@ export const mkAgent = async (module:Module)=>{
     let intake = input({placeholder:"message",
       style:{ width:"40vw", position: "fixed", bottom:"1em", fontSize:"1.1em", padding:"0.5em 1em", borderRadius:".4em", border:`4px solid ${color.gray}`, background: color.lightgray, color: color.color },
       onkeydown: (e:KeyboardEvent)=>{
-        if (e.key == "Enter")
-          msgAgent(module, id, intake.value).then(()=>{
-            intake.value = ""
-            chatel.append(hint)
-          })
+        if (e.key == "Enter"){
+          chatel.append(hint)
+          msgAgent(module, id, intake.value).then(()=>{ intake.value = "" })
+        }
        }
     })
     chatel.append(intake)

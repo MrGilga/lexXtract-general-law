@@ -1,31 +1,15 @@
 
 import type { Stored } from "../model/db";
 import { LocalStored } from "../model/helpers";
-import { SchemaPattern, validateSchema, type Pattern } from "../model/pattern";
-import type { Agent, FunctionDef, JSONSchema, JsonData, Message, Module } from "../model/types";
-import { popup } from "../view/html";
-import { jsonView } from "../view/json";
+import { validateSchema, type Pattern } from "../model/pattern";
+import type { Agent, FunctionDef, JsonData, Message, Module } from "../model/types";
 import { chat, type ModelMessage, type ModelTool } from "./request";
 
 
-
 export const MessagePattern: Pattern = [
-  {
-    role: ["system", "user", "assistant"],
-    content: String
-  },
-  {
-    type: "function_call",
-    id: String,
-    call_id: String,
-    name: String,
-    arguments: String
-  },
-  {
-    type: "function_call_output",
-    call_id: String,
-    output: String
-  }
+  { role: ["system", "user", "assistant"], content: String },
+  { type: "function_call", id: String, call_id: String, name: String, arguments: String },
+  { type: "function_call_output", call_id: String, output: String }
 ]
 
 export let cost_tracker = LocalStored<number>("cost_tracker", Number)
@@ -36,16 +20,13 @@ export const AgentPattern : Pattern = {
   msgs_ctr: Number,
 }
 
-
 const _get_agent = (mod:Module, agent_id: string) => mod.db<Agent>(agent_id, AgentPattern)
-const _get_msg = (mod:Module, agent_id: string, msg_ctr: number) => mod.db<Message>(agent_id+"_msg_"+msg_ctr, MessagePattern)
-
+const _get_msg = (mod:Module, agent_id: string, msg_ctr: number, upsertValue?: Message) => mod.db<Message>(agent_id+"_msg_"+msg_ctr, MessagePattern, {upsertValue})
 
 const _storeMessage = async (mod: Module, agent_id: string, msg: Message) => {
   let ag = await mod.db<Agent>(agent_id, AgentPattern);
   let ctr = ag.get().msgs_ctr;
-  // (await _get_msg(mod, agent_id, ctr)).set(msg);
-  // mod.db<Message>(agent_id+"_msg_"+ctr, MessagePattern)
+  await _get_msg(mod, agent_id, ctr, msg)
   ag.update(x=>{x.msgs_ctr = ctr+1; return x})
   return ctr
 }
@@ -55,18 +36,17 @@ export const startAgent = async (mod: Module, prompt: string, tools:string[]) =>
   let ag = await _get_agent(mod, id)
   ag.set({ id, msgs_ctr: 0, tools})
   await _storeMessage(mod, id, {role: "system", content: prompt})
-  popup("new agent:", jsonView(ag.get()))
   return id
 }
 
-
 export const msgAgent = async (mod: Module, agent_id: string, msg: string, role: "user" | "system" = "user") => {
   await _storeMessage(mod, agent_id, {role, content: msg})
-  return runagent(mod, agent_id)
+  runagent(mod, agent_id)
 }
 
 const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> => {
   let ag = await _get_agent(mod, agent_id)
+  ag.update(a=>({...a, tools: Object.keys(mod.functions.get())}));
   let hist: Message[] = await Promise.all( Array.from({length:ag.get().msgs_ctr}).map((_,i)=>_get_msg(mod, agent_id, i).then(x=>x.get())))
   let tools: ModelTool[] = Object.entries(mod.functions.get()).filter(([name])=> ag.get().tools.includes(name)).map(([name, def])=>(
     {
@@ -78,12 +58,12 @@ const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> =>
   ))
   return chat(hist, "moonshotai/kimi-k2.6", tools).then(async r=>{
     cost_tracker.set(cost_tracker.get() + r.cost)
-    console.log("Model response", r)
     let proms: Promise<void>[] = [];
     let outputs = new Map<string, (m:ModelMessage)=>void>();
     for (let msg of r.messages){
       let mid = await _storeMessage(mod, agent_id, msg)
-      if ("type" in msg && msg.type == "function_call_output") outputs.set(msg.call_id, c=> _get_msg(mod, agent_id, mid).then(s=>s.set(c)))
+      if ("type" in msg && msg.type == "function_call_output")
+        outputs.set(msg.call_id, cres => _get_msg(mod, agent_id, mid, cres))
     }
     for (let msg of r.messages){
       if ("type" in msg && msg.type == "function_call"){
@@ -91,6 +71,7 @@ const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> =>
         proms.push(mkRunner(mod, mod.functions.get()[msg.name]!)(JSON.parse(msg.arguments))
         .then(ret=> outputs.get(msg.call_id)!({type: "function_call_output", call_id: msg.call_id, output: JSON.stringify(ret) ?? "OK"})))
       }
+      
     }
     await Promise.all(proms)
     if (proms.length) return await runagent(mod, agent_id)
@@ -104,14 +85,15 @@ export const viewAgent = (mod: Module, agent_id: string, onMsg: (msg: Stored<Mes
     let update = async ()=>{
       let proms : Promise<Stored<Message>>[] = []
       while(msgc < ag.get().msgs_ctr){
-        proms.push(_get_msg(mod, agent_id, msgc))
+        let c= msgc;
+        proms.push(_get_msg(mod, agent_id, c))
+
         msgc++
       }
       await Promise.all(proms).then(msgs=>msgs.forEach(onMsg))
     }
     update()
-    ag.onupdate(update)
-  })
+    ag.onupdate(()=>(update()))})
 }
 
 
@@ -123,21 +105,23 @@ export const mkRunner = (module:Module, v: FunctionDef): (args:{[key:string]:Jso
     let reads = v.reads || []
     let writes = v.writes || []
 
-    let start_agent = (prompt: string, tools:string[]) => startAgent(module, prompt, tools)
-      .then(agent_id=>runagent(module, agent_id))
-      .then(resp => ("role" in resp) ? resp.content : "Agent started. No response.")
+    let start_agent = (prompt: string, tools:string[]) =>
+      startAgent(module, prompt, tools)
+      .then(agent_id=>
+        runagent(module, agent_id)
+        .then(resp => ({
+          agent_id,
+          response: ("role" in resp) ? resp.content : "Agent started. No response."
+        }))
+      )
     let msg_agent = (agent_id: string, msg: string) => msgAgent(module, agent_id, msg)
 
     new Set(reads.concat(writes))
     .forEach(cap=>{
 
       if (cap == "agents"){
-        if (writes.includes("agents")){
-          args["agents"] = {
-            start: start_agent as any,
-            message: msg_agent as any
-          }
-        }
+        if (writes.includes("agents"))
+          args["agents"] = {start: start_agent as any, message: msg_agent as any}
         return
       }
       let section = module[cap as keyof Module] as Stored<any>

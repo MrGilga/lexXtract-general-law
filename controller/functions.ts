@@ -97,13 +97,17 @@ export const default_functions: {[key:string]: FunctionDef} = {
       })
     `
   },
-  viewDocuments:{
-    description: "view all documents",
+  listDocuments:{
+    description: "list document titles",
     parameters: {},
     reads: ["documents"],
-    code: `
-      return documents.get()
-      `
+    code: 'return Object.keys(documents.get())'
+  },
+  viewDocument:{
+    description: "view a document by title",
+    parameters: {title: {type: "string"}},
+    reads: ["documents"],
+    code: 'return documents.get()[title]'
   },
   viewExtractions: {
     description: "a function that views extractions for a given category and subcategory",

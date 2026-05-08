@@ -1,4 +1,5 @@
-import { mkRunner } from "../controller/functions";
+// import { mkRunner } from "../controller/functions";
+import { mkRunner } from "../controller/agent";
 import { createModule, db } from "../controller/module";
 import { runTests } from "./test";
 
