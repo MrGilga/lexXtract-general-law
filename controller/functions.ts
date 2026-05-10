@@ -1,7 +1,7 @@
 
-import type { Agent, FunctionDef, Module } from "../model/types";
-import { SchemaPattern, toSchema, validateSchema, type Pattern } from "../model/pattern";
-import { startAgent, type AgentTemplate } from "./agent";
+import type { FunctionDef } from "../model/types";
+import { toSchema } from "../model/pattern";
+import { type AgentTemplate } from "./agent";
 
 
 export const ProjectMission = `Lexxtract General Law Project
@@ -43,7 +43,6 @@ try{
 }
 `
 }]))
-
 
 
 export const agentCoordinator : AgentTemplate = {
@@ -183,21 +182,7 @@ export const default_functions: {[key:string]: FunctionDef} = {
       return e[categoryName][subcategoryName]
       `
   },
-  // startAgent: {
-  //   description: "start a subagent with a given prompt and tools. tools should be names of functions defined here. This will return the ID of the new agent.",
-  //   parameters: {
-  //     prompt: toSchema(String),
-  //     tools: toSchema([String]),
-  //   },
-  //   reads: ['agents'],
-  //   writes: ['agents'],
-  //   code:`
-  //     return agents.start(prompt, tools)
-  //   `
-  // },
-
   ...launchFunctions,
-
   messageAgent: {
     description: "send a message to an agent. This will trigger the agent to run, and return its response.",
     parameters: {

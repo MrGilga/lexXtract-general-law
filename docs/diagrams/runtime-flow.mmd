@@ -1,0 +1,41 @@
+sequenceDiagram
+    actor User as USER
+    participant Coord as COORDINATOR
+    participant Module as Module
+    participant Agent as EXPERT AGENT
+    participant Funcs as Module Functions
+    participant Store as Module Stores
+
+    User->>Coord: Request task / ask question
+    Coord->>Module: Load module context
+    Module-->>Coord: prompt, taxonomy, documents, extraction, functions, agents
+
+    alt No existing expert agent
+        Coord->>Module: Create Agent state
+        Module-->>Coord: agent_id
+    end
+
+    Coord->>Agent: Start or message agent
+    Note over Agent: System prompt + selected tools + message history
+
+    Agent->>Funcs: Call function(name, arguments)
+    Note over Funcs: FunctionDef limits access via reads/writes capabilities
+
+    Funcs->>Store: Read allowed sections
+    Store-->>Funcs: taxonomy / documents / extraction / prompt / agents
+
+    opt Function updates state
+        Funcs->>Store: Write allowed sections
+        Store-->>Funcs: Persisted update
+    end
+
+    Funcs-->>Agent: function_call_output
+    Agent-->>Coord: Final response or follow-up call
+
+    opt Multi-step task
+        Coord->>Agent: Continue with new user/system message
+        Agent->>Funcs: Additional function calls
+        Funcs-->>Agent: Additional outputs
+    end
+
+    Coord-->>User: Consolidated answer

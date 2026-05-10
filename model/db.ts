@@ -7,12 +7,13 @@ import { hash } from "./hash"
 
 
 export type Stored <T extends JsonData> = {
-  key:string,
-  pattern: Pattern,
-  get: ()=> T,
+  key:string
+  pattern: Pattern
+  get: ()=> T
   set: (data:T)=>void,
   onupdate: (listener:()=>void)=>void
   update: (updater: (data:T)=>T | Promise<T> | void) => void
+  map: (fn: (v:T)=>T) => Stored<T>
 }
 
 export type DB = {

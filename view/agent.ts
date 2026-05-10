@@ -28,7 +28,6 @@ export const mkAgent = async (module:Module)=>{
   }
   showrunner()
   runningAgents.onupdate(showrunner)
-  // running.textContent = `running agents: ${runningAgents.get().length}`
   let panel = div(
     style({
       position: "sticky",

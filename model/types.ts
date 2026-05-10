@@ -16,8 +16,6 @@ export type ModPath = {
   owner: string,
   name: string
 }
-
-
 export type Capability = "documents" | "extraction" | "functions" | "taxonomy" | "prompt" | "agents"
 
 export type FunctionDef = {
@@ -27,9 +25,6 @@ export type FunctionDef = {
   writes?: Capability[],
   code: string
 }
-
-
-
 
 export type Extraction = {
   [category: string]: {
@@ -51,7 +46,6 @@ export type Extraction = {
   }
 }
 
-
 export type Module = {
   path: ModPath,
   db: <T extends JsonData>(key:string, pattern:Pattern, args?: {upsertValue?:T, defaultValue?:T})=>Promise<Stored<T>>,
@@ -62,7 +56,6 @@ export type Module = {
   prompt: Stored<string>,
   agents: Stored<string[]>
 }
-
 
 export type App = {
   [name:string]: Module

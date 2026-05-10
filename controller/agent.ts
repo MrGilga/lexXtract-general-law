@@ -57,7 +57,6 @@ runningAgents.set([])
 
 const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> => {
   let ag = await _get_agent(mod, agent_id)
-  // ag.update(a=>({...a, tools: Object.keys(mod.functions.get())}));
   let hist: Message[] = await Promise.all( Array.from({length:ag.get().msgs_ctr}).map((_,i)=>_get_msg(mod, agent_id, i).then(x=>x.get())))
   let tools: ModelTool[] = Object.entries(mod.functions.get()).filter(([name])=> ag.get().tools.includes(name)).map(([name, def])=>(
     {
@@ -146,7 +145,12 @@ export const mkRunner = (module:Module, v: FunctionDef): (args:{[key:string]:Jso
     })
 
     let func = new Function(...Object.keys(args), v.code)
-    return await func(...Object.values(args)) ?? "OK" as JsonData
+    try{
+      return await func(...Object.values(args)) ?? "OK" as JsonData
+    }catch(e){
+      console.error("Error running function", e)
+      return {error: e instanceof Error ? e.message : String(e)} as JsonData
+    }
   }
 }
 
