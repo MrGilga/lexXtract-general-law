@@ -143,7 +143,78 @@ export const Tools : {[key:string]: Tool} = {
       return e[categoryName][subcategoryName]!
     }
   },
+  addCategory: {
+    def: {
+      description: "a function that adds a category to the taxonomy",
+      parameters: {categoryName: {type: "string"}, description: {type: "string"}},
+      reads: ["taxonomy"],
+      writes: ["taxonomy"],
+    },
+    runner: (taxonomy:Store<Taxonomy>, _2, _3, _4, args) => {
+      let {categoryName, description} = args as {categoryName: string, description: string}
+      taxonomy.update(t=>{
+        if (!t.categories[categoryName]) t.categories[categoryName] = {description, subCategories: {}}
+        return t
+      })
+      return "OK"
+    }
+  },
+  removeCategory: {
+    def: {
+      description: "a function that removes a category from the taxonomy",
+      parameters: {categoryName: {type: "string"}},
+      reads: ["taxonomy"],
+      writes: ["taxonomy"],
+    },
+    runner: (taxonomy, _2, _3, _4, args) => {
+      let {categoryName} = args as {categoryName: string}
+      taxonomy.update(t=>{
+        delete t.categories[categoryName]
+        return t
+      })
+      return "OK"
+    }
+  },
+  addSubcategory: {
+    def: {
+      description: "a function that adds a subcategory to a category in the taxonomy",
+      parameters: {
+        categoryName: {type: "string"},
+        subcategoryName: {type: "string"},
+      },
+      reads: ["taxonomy"],
+      writes: ["taxonomy"],
+    },
+    runner: (taxonomy:Store<Taxonomy>, _2, _3, _4, args) => {
+      let {categoryName, subcategoryName} = args as {categoryName: string, subcategoryName: string}
+      taxonomy.update(t=>{
+      
+        if (!t.categories[categoryName]) t.categories[categoryName] = {description: "", subCategories: {}}
 
+        return t
+      })
+      return "OK"
+    }
+  },
+  removeSubCategory: {
+    def: {
+      description: "a function that removes a subcategory from a category in the taxonomy",
+      parameters: {
+        categoryName: {type: "string"},
+        subcategoryName: {type: "string"},
+      },
+      reads: ["taxonomy"],
+      writes: ["taxonomy"],
+    },
+    runner: (taxonomy:Store<Taxonomy>, _2, _3, _4, args) => {
+      let {categoryName, subcategoryName} = args as {categoryName: string, subcategoryName: string}
+      taxonomy.update(t=>{
+        if (t.categories[categoryName]) delete t.categories[categoryName].subCategories[subcategoryName]
+        return t
+      })
+      return "OK"
+    }
+  },
   addExtraction: {
     def: {
       description: "a function that adds an extraction item",
@@ -168,7 +239,6 @@ export const Tools : {[key:string]: Tool} = {
       return "OK"
     }
   },
-
   removeExtraction: {
     def: {
       description: "a function that removes an extraction item",
@@ -193,8 +263,6 @@ export const Tools : {[key:string]: Tool} = {
   },
   startTaxonomyExpert: mkstarter(TaxonomyExpert),
   startExtractionExpert: mkstarter(ExtractionExpert),
-
-
   messageAgent: {
     def:{
       description: "send a message to an agent",
