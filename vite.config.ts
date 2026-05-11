@@ -5,7 +5,7 @@ export default defineConfig({
   root: "./",
   publicDir: false,
   build: {
-    outDir: "../docs",
+    outDir: "./docs",
     emptyOutDir: true,
   },
 });
