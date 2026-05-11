@@ -1,8 +1,8 @@
-import { default_functions } from "./functions";
-import { RemoteDB, type Stored } from "../model/db";
+import { RemoteDB, type Store } from "../model/db";
 import { SchemaPattern, TaxonomyPattern, type Pattern } from "../model/pattern";
 import type { JsonData, Taxonomy } from "../model/types";
-import { type ModPath , type FunctionDef, type Module, type Extraction } from "../model/types";
+import { type ModPath , type FunctionParams, type Module, type Extraction } from "../model/types";
+import { functionReps } from "./functions";
 
 const CapabilityPattern: Pattern = ["taxonomy", "documents", "prompt", "functions", "extraction", "agents"]
 
@@ -11,7 +11,7 @@ export const FunctionDefPattern: Pattern = {
   "reads?": [CapabilityPattern],
   "writes?": [CapabilityPattern],
   parameters: {"[key:string]": SchemaPattern},
-  code: String
+  // code: String
 }
 
 export const db = await RemoteDB()
@@ -44,7 +44,7 @@ export const ExtractionPattern: Pattern = {
 export const createModule = async (path: ModPath, tryCopy : (callback:()=>Promise<ModPath>)=>void ): Promise<Module> => {
   let module_list = await db.get<ModPath[]>("modules", [ModPathPattern])
   if (!module_list.get().map(x=>JSON.stringify(x)).includes(JSON.stringify(path))) module_list.set([...module_list.get(), path])
-  let modState: Stored<any>[] = []
+  let modState: Store<any>[] = []
   let mod_db = async  <T extends JsonData> (key:string, pattern:Pattern, args: {upsertValue?:T, defaultValue?:T} = {}) => {
     let st = await db.get<T>(path.name+":"+key, pattern, {owner: path.owner, ...args})
     if (path.owner != db.userid) st.set = async ()=>{
@@ -58,7 +58,7 @@ export const createModule = async (path: ModPath, tryCopy : (callback:()=>Promis
         ]).then(()=>newmod.path))
       )
     }
-    modState.push(st as any as Stored<JsonData>)
+    modState.push(st as any as Store<JsonData>)
     return st
   }
 
@@ -66,13 +66,13 @@ export const createModule = async (path: ModPath, tryCopy : (callback:()=>Promis
     mod_db<Taxonomy>("taxonomy", TaxonomyPattern),
     mod_db<Extraction>("extraction", ExtractionPattern),
     mod_db<{[key:string]: string}>("documents", {"[key:string]": String}),
-    mod_db<{[key:string]: FunctionDef}>("functions", {"[key:string]": FunctionDefPattern}),
+    mod_db<{[key:string]: FunctionParams}>("functions", {"[key:string]": FunctionDefPattern}),
     mod_db<string>("prompt", String, {defaultValue: "You are an expert text analysis assistant."}),
     mod_db<string[]>("agents", [String])
   ])
 
   const module: Module ={db: mod_db,functions,taxonomy,extraction,documents,prompt,path, agents}
-  if (path.owner == db.userid) await module.functions.set(default_functions)
+  if (path.owner == db.userid) await module.functions.set(functionReps)
   return module
 }
 

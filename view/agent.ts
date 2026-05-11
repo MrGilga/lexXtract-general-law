@@ -1,7 +1,8 @@
 import {  msgAgent, runningAgents, startAgent, viewAgent } from "../controller/agent"
-import { agentCoordinator } from "../controller/functions"
+import { coordinatorAgent } from "../controller/functions"
+
 import type { Module } from "../model/types"
-import { button, color, div, h2, input, p, popup, style } from "./html"
+import { button, color, div, fromStore, h2, input, p, popup, style } from "./html"
 import { jsonView, viewer } from "./json"
 
 
@@ -11,20 +12,16 @@ export const mkAgent = async (module:Module)=>{
 
   let chats = await  module.db<string[]>("past_agents", [String])
   let newChat = async ()=>
-    startAgent(module, agentCoordinator.prompt, agentCoordinator.tools)
+    startAgent(module, coordinatorAgent.prompt, coordinatorAgent.tools)
     .then(n=> chats.update(c=>[...c, n]))
   let chatel = div(style({
     marginBottom: "3em",
   }))
   let running = mkButton("", ()=>{})
-  // runningAgents.onupdate(()=>{
   let showrunner = ()=>{
     running.textContent = `running agents: ${runningAgents.get().length}`
-    if (runningAgents.get().length>0){
-      running.style.animation = "pulse 2s infinite"
-    }else{
-      running.style.animation = "none"
-    }
+    if (runningAgents.get().length>0) running.style.animation = "pulse 2s infinite"
+    else running.style.animation = "none"
   }
   showrunner()
   runningAgents.onupdate(showrunner)
@@ -50,27 +47,22 @@ export const mkAgent = async (module:Module)=>{
     chatel.replaceChildren(loader)
     
     viewAgent(module,id, msg=>{
+      console.log("got message from agent", msg.get())
       loader.remove()
-      let d = msg.get()
-      
-      let role = ("role" in d) ? d.role : "output"
-      let m = div()
-      chatel.append(m)
-
-      
-      let showm = () => m.replaceWith(div(
-        style({
-          fontWeight: role == "user" ? "bold" : "normal",
-          color: role == "system" ? color.gray : color.color,
-          padding: "0.5em",
-          paddingLeft: role == "user" ? "0" : "1em",
-
-        }),
-        ("content" in d ? (role == "system" ? "[system]" : d.content) : d.type == "function_call" ? `[function call: ${d.name}]` : `[function output: ${d.output.slice(0,100)}]`),
-        {onclick:()=>popup(div(p("message content"), jsonView(d)))}
-      ))
-      showm()
-      msg.onupdate(showm)
+      chatel.append(fromStore(msg, d=>{
+        let role = ("role" in d) ? d.role : "output"
+        return div(
+          style({
+            fontWeight: role == "user" ? "bold" : "normal",
+            color: role == "system" ? color.gray : color.color,
+            padding: "0.5em",
+            paddingLeft: role == "user" ? "0" : "1em",
+            whiteSpace: "pre-wrap",
+          }),
+          ("content" in d ? (d.role == "system" ? "[system]" : d.content) : d.type == "function_call" ? `[function call: ${d.name}]` : `[function output: ${d.output.slice(0,100)}]`),
+          {onclick:()=>popup(div(p("message content"), jsonView(d)))}
+        )
+      }))
 
       hint.remove()
     })
@@ -87,9 +79,7 @@ export const mkAgent = async (module:Module)=>{
     chatel.append(intake)
   }
   if (chats.get().length == 0) await newChat()
-  let update =()=>showChat(chats.get()[chats.get().length-1]!)
-  update()
-  chats.onupdate(update)
+  chats.onupdate(cs=>showChat(cs[cs.length-1]!))
 
   return el;
 

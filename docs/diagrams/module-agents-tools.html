@@ -49,10 +49,10 @@ graph TD
 
     UserActor["USER&lt;br/&gt;human actor"]
     Coordinator["Coordinator&lt;br/&gt;delegates and summarizes"]
-    TaxonomyArchitect["TaxonomyArchitect&lt;br/&gt;taxonomy specialist"]
+    TaxonomyExpert["TaxonomyExpert&lt;br/&gt;taxonomy specialist"]
     ExtractionExpert["ExtractionExpert&lt;br/&gt;extraction specialist"]
 
-    LaunchFns["Launch FunctionDefs&lt;br/&gt;TaxonomyArchitect()&lt;br/&gt;ExtractionExpert()"]
+    LaunchFns["Launch FunctionDefs&lt;br/&gt;TaxonomyExpert()&lt;br/&gt;ExtractionExpert()"]
     MessageFn["messageAgent()"]
 
     Capability["Capability"]
@@ -104,18 +104,18 @@ graph TD
 
     UserActor --> Coordinator
     Coordinator -->|"is represented at runtime by"| Agent
-    TaxonomyArchitect -->|"is represented at runtime by"| Agent
+    TaxonomyExpert -->|"is represented at runtime by"| Agent
     ExtractionExpert -->|"is represented at runtime by"| Agent
 
     Coordinator -->|"uses launch tools"| LaunchFns
     Coordinator -->|"uses"| MessageFn
 
-    LaunchFns -->|"spawns"| TaxonomyArchitect
+    LaunchFns -->|"spawns"| TaxonomyExpert
     LaunchFns -->|"spawns"| ExtractionExpert
-    MessageFn -->|"messages"| TaxonomyArchitect
+    MessageFn -->|"messages"| TaxonomyExpert
     MessageFn -->|"messages"| ExtractionExpert
 
-    TaxonomyArchitect -->|"uses&lt;br/&gt;viewTaxonomy, addCategory, removeCategory, addSubcategory, removeSubCategory, listDocuments, viewDocument"| FunctionDef
+    TaxonomyExpert -->|"uses&lt;br/&gt;viewTaxonomy, addCategory, removeCategory, addSubcategory, removeSubCategory, listDocuments, viewDocument"| FunctionDef
     ExtractionExpert -->|"uses&lt;br/&gt;viewTaxonomy, listDocuments, viewDocument, addExtraction, viewExtractions"| FunctionDef
       </pre>
     </div>

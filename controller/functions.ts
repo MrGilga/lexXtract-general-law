@@ -1,7 +1,9 @@
 
-import type { FunctionDef } from "../model/types";
+import type { Extraction, FunctionParams, JsonData, Module, Taxonomy } from "../model/types";
 import { toSchema } from "../model/pattern";
-import { type AgentTemplate } from "./agent";
+import { msgAgent, runagent, runningAgents, startAgent, type AgentTemplate } from "./agent";
+import type { Store } from "../model/db";
+import { stringify } from "../model/json";
 
 
 export const ProjectMission = `Lexxtract General Law Project
@@ -17,186 +19,218 @@ The Extractions are the structured representations of the information we have ex
 `
 
 
+export type Tool = {
+  def: FunctionParams,
+  runner: (
+    taxonomy: Store<Taxonomy>,
+    documents: Store<{[key:string]: string}>,
+    extraction: Store<Extraction>,
+    agents: {
+      start: (prompt: string, tools: string[])=>Promise<string>,
+      message: (agent_id: string, msg: string)=>Promise<string>
+    },
+    args: JsonData,
+  )=> JsonData | Promise<JsonData>
+}
+
+
+export const runTool = (mod:Module, name:string, args: JsonData):Promise<JsonData>=>{
+  let tool = Tools[name]
+  if (!tool) throw new Error("not found:"+name)
+  try{
+    return Promise.resolve(tool.runner(mod.taxonomy, mod.documents, mod.extraction, {
+      start: (prompt, tools) => startAgent(mod, prompt, tools).then(id => {
+          console.log("Started agent", id, "with prompt", prompt, "and tools", tools)
+          return runagent(mod, id).then(resp=>{
+            let txt = "role" in resp ? resp.content : JSON.stringify(resp)
+            console.log("Agent", id, "finished with response", txt)
+            return stringify( {
+              agent_id: id,
+              response: txt
+            })
+          })
+        }),
+      message: (id, msg)=>
+        msgAgent(mod, id, msg)
+        .then(async ()=>{
+          const resp = await runagent(mod, id);
+          let txt = "role" in resp ? resp.content : JSON.stringify(resp);
+          console.log("Agent", id, "finished with response", txt);
+          return stringify({agent_id: id, response: txt });
+        }),
+    }, args))
+  }catch(e){
+    return Promise.resolve({error: e instanceof Error ? e.message : String(e)} as JsonData)
+  }
+}
+
+
 const specialistAgents : AgentTemplate[] = [
   {
-    name: "TaxonomyArchitect",
+    name: "TaxonomyExpert",
     prompt: ProjectMission+ "You are a taxonomy architect. Your task is to design and maintain the taxonomy for the project. The taxonomy is a hierarchical categorization of legal concepts, with categories and subcategories.",
     tools: ["viewTaxonomy", "addCategory", "removeCategory", "addSubcategory", "removeSubCategory", "listDocuments", "viewDocument"]
   },
   {
     name: "ExtractionExpert",
     prompt: ProjectMission+"You are an extraction expert. Your task is to extract information from the documents and organize it according to the taxonomy. Each piece of information you extract should be categorized under a subcategory in the taxonomy, and should include at least a title, a depiction (a short text describing the item), and source references pointing to the document it was extracted from.",
-    tools: ["viewTaxonomy", "listDocuments", "viewDocument", "addExtraction", "viewExtractions"]
+    tools: ["viewTaxonomy", "listDocuments", "viewDocument", "addExtraction", "viewExtractions", "removeExtraction"]
   }
 ]
 
-export const launchFunctions : {[key:string]: FunctionDef} = Object.fromEntries(specialistAgents.map(agent=>[agent.name, {
-  description: `launch a ${agent.name} agent`,
-  parameters: {assignment: toSchema(String)},
-  reads: ['agents'],
-  writes: ['agents'],
-  code: `
-try{
-  return agents.start(${JSON.stringify(agent.prompt)} + assignment, ${JSON.stringify(agent.tools)})
-}catch(e){
-  return "ERROR launching agent: " + e.message
-}
-`
-}]))
-
-
-export const agentCoordinator : AgentTemplate = {
+export const coordinatorAgent : AgentTemplate = {
   name: "Coordinator",
-  prompt:  ProjectMission+"You are a coordinator agent. Your task is to delegate requests from the user to a team of subagents, and to summarize their responses. Your main tools are launching agents and messaging agents. Each agent is responsible for picking their own tools for each job. Each one also has a ProjectMission overview. When they are finished the should report back to you with a summary. If you want to ask an agent or have additional instrucitons you can message them directly after they reported back.",
-  tools: [...Object.keys (launchFunctions), "messageAgent"]
+  prompt: ProjectMission+"You are a coordinator agent. Your task is to delegate requests from the user to a team of subagents, and to summarize their responses. Your main tools are launching agents and messaging agents. Each agent is responsible for picking their own tools for each job. Each one also has a ProjectMission overview. When they are finished the should report back to you with a summary. If you want to ask an agent or have additional instrucitons you can message them directly after they reported back.",
+  tools: [ "startTaxonomyExpert", "startExtractionExpert", "messageAgent"]
 }
 
+export const basicTools : {[key:string]: Tool} = {
 
-export const default_functions: {[key:string]: FunctionDef} = {
   viewTaxonomy: {
-    description: "a function that returns the taxonomy",
-    parameters: {},
-    reads: ["taxonomy"],
-    code: `return taxonomy.get()`
-  },
-  addCategory: {
-    description: "add a category to the taxonomy",
-    parameters: {
-      categoryName: {type: "string"},
+    def: {
+      description: "a function that returns the taxonomy",
+      parameters: {},
+      reads: ["taxonomy"],
     },
-    reads: ["taxonomy"],
-    writes: ["taxonomy"],
-    code: `
-      taxonomy.update((t)=>{
-        categoryName ||= "newCat"
-        if (t.categories[categoryName]) return t
-        t.categories[categoryName] = {description: "a category", subCategories:{}}
-        return t
-      })
-      `
-  },
-  removeCategory: {
-    description: "remove any Category from the taxonomy",
-    parameters: {
-      catName: {
-        type: "string"
-      }
-    },
-    reads: [
-      "taxonomy"
-    ],
-    writes: [
-      "taxonomy"
-    ],
-    code: "taxonomy.update(t=>{delete t.categories[catName];console.log(t);return t})",
-  },
-  addSubcategory: {
-    description: "a function that adds a subcategory to the taxonomy",
-    parameters: {
-      categoryName: {type: "string"},
-      subcategoryName: {type: "string"},
-    },
-    reads: ["taxonomy"],
-    writes: ["taxonomy"],
-    code: `
-      taxonomy.update((t)=>{
-        if (!t.categories[categoryName]) throw new Error("invalid category")
-        subcategoryName ||= "newSubcat"
-        if (t.categories[categoryName].subCategories[subcategoryName]) return t
-        t.categories[categoryName].subCategories[subcategoryName] = {description: "a subcategory"}
-        return t
-      })
-      `
-  },
-  removeSubCategory: {
-    description: "remove any SubCategory from the taxonomy",
-    parameters: {
-      catName: {
-        type: "string"
-      },
-      subCatName: {
-        type: "string"
-      }
-    },
-    reads: [
-      "taxonomy"
-    ],
-    writes: [
-      "taxonomy"
-    ],
-    code: "taxonomy.update(t=>{delete t.categories[catName].subCategories[subCatName];console.log(t);return t})",
-  },
-  addExtraction: {
-    description: "a function that adds an extraction to the extraction db",
-    parameters: {
-      categoryName: {type: "string"},
-      subcategoryName: {type: "string"},
-      title: {type: "string"},
-      depiction: {type: "string"},
-      sources: toSchema([{
-        documentId: {type: "string"},
-        excerpt: {type: "string"}
-      }])
-    },
-    reads: ["taxonomy", "extraction"],
-    writes: ["extraction"],
-    code: `
-      extraction.update(e=>{
-        if (!e[categoryName]) e[categoryName] = {}
-        if (!e[categoryName][subcategoryName]) e[categoryName][subcategoryName] = {}
-        e[categoryName][subcategoryName][title] = {depiction, sources, links: []}
-        return e
-      })
-    `
+    runner: (taxonomy)=> taxonomy.get()
   },
   listDocuments:{
-    description: "list document titles",
-    parameters: {},
-    reads: ["documents"],
-    code: 'return Object.keys(documents.get())'
+    def: {
+      description: "list document titles",
+      parameters: {},
+      reads: ["documents"],
+    },
+    runner: (_1, documents) => Object.keys(documents.get())
   },
   viewDocument:{
-    description: "view a document by title",
-    parameters: {title: {type: "string"}},
-    reads: ["documents"],
-    code: 'return documents.get()[title]'
+    def: {
+      description: "view a document by title",
+      parameters: {title: {type: "string"}},
+      reads: ["documents"],
+    },
+    runner: (_1, documents, _2, _3, args) => (documents.get())[(args as {title: string}).title]!
   },
   viewExtractions: {
-    description: "a function that views extractions for a given category and subcategory",
-    parameters: {
-      categoryName: toSchema(["ALL", String]),
-      subcategoryName: toSchema(["ALL", String])
+    def: {
+      description: "a function that views extractions for a given category and subcategory",
+      parameters: {
+        categoryName: toSchema(["ALL", String]),
+        subcategoryName: toSchema(["ALL", String])
+      },
+      reads: ["extraction"],
     },
-    reads: ["extraction"],
-    code: `
-      // return extraction.get().then(e=>{
-      //   if (categoryName == "ALL") return e
-      //   if (!e[categoryName]) throw new Error("invalid category")
-      //   if (subcategoryName == "ALL") return e[categoryName]
-      //   return e[categoryName][subcategoryName]
-      // })
+    runner: (_1, _2, extraction, _3, args) => {
+      let {categoryName, subcategoryName} = args as {categoryName: string, subcategoryName: string}
       let e = extraction.get()
       if (categoryName == "ALL") return e
       if (!e[categoryName]) throw new Error("invalid category")
       if (subcategoryName == "ALL") return e[categoryName]
-      return e[categoryName][subcategoryName]
-      `
+      return e[categoryName][subcategoryName]!
+    }
   },
-  ...launchFunctions,
-  messageAgent: {
-    description: "send a message to an agent. This will trigger the agent to run, and return its response.",
-    parameters: {
-      agent_id: toSchema(String),
-      msg: toSchema(String)
+
+  addExtraction: {
+    def: {
+      description: "a function that adds an extraction item",
+      parameters: {
+        categoryName: {type: "string"},
+        subcategoryName: {type: "string"},
+        title: {type: "string"},
+        depiction: {type: "string"},
+      },
+      reads: ["extraction"],
+      writes: ["extraction"],
     },
-    reads: ['agents'],
-    writes: ['agents'],
-    code:`
-      return agents.message(agent_id, msg)
-    `
+    runner: (_1, _2, extraction, _3, args) => {
+      let {categoryName, subcategoryName, title, depiction} = args as {categoryName: string, subcategoryName: string, title: string, depiction: string}
+      extraction.update(e=>{
+        if (!e[categoryName]) e[categoryName] = {}
+        if (!e[categoryName][subcategoryName]) e[categoryName][subcategoryName] = {}
+        e[categoryName][subcategoryName][title] = {depiction, sources: [], links: []}
+        return e
+      })
+      return "OK"
+    }
+  },
+
+  removeExtraction: {
+    def: {
+      description: "a function that removes an extraction item",
+      parameters: {
+        categoryName: {type: "string"},
+        subcategoryName: {type: "string"},
+        title: {type: "string"},
+      },
+      reads: ["extraction"],
+      writes: ["extraction"],
+    },
+    runner: (_1, _2, extraction, _3, args) => {
+      let {categoryName, subcategoryName, title} = args as {categoryName: string, subcategoryName: string, title: string}
+      extraction.update(e=>{
+        if (e[categoryName] && e[categoryName][subcategoryName] && e[categoryName][subcategoryName][title]){
+          delete e[categoryName][subcategoryName][title]
+        }
+        return e
+      })
+      return "OK"
+    }
+  },
+
+  startExtractionExpert: {
+    def:{
+      description: "start an ExtractionExpert agent with a given prompt",
+      parameters: {
+        prompt: {type: "string"},
+      },
+      reads: ["extraction"],
+      writes: ["extraction", "agents"]
+    },
+    runner: (taxonomy, documents, extraction, agents, args) => {
+      return agents.start((args as {prompt: string}).prompt, specialistAgents.find(a=>a.name == "ExtractionExpert")!.tools)
+    }
+  },
+
+  startTaxonomyExpert: {
+    def:{
+      description: "start a TaxonomyExpert agent with a given prompt",
+      parameters: {
+        prompt: {type: "string"},
+      },
+      reads: ["taxonomy"],
+      writes: ["taxonomy", "agents"]
+    },
+    runner: (taxonomy, documents, extraction, agents, args) => {
+      return agents.start((args as {prompt: string}).prompt, specialistAgents.find(a=>a.name == "TaxonomyExpert")!.tools)
+    }
+  },
+
+  messageAgent: {
+    def:{
+      description: "send a message to an agent",
+      parameters: {
+        agent_id: {type: "string"},
+        message: {type: "string"}
+      },
+      reads: [],
+      writes: []
+    },
+    runner: (taxonomy, documents, extraction, agents, args) => {
+      let {agent_id, message} = args as {agent_id: string, message: string}
+      return agents.message(agent_id, message)
+    }
   }
+
+}
+
+
+export const launchFunctionTools : {[key:string]: Tool} = {}
+
+
+export const Tools = {
+  ...basicTools
 }
 
 
 
 
+export const functionReps: {[key:string]: FunctionParams} = Object.fromEntries(Object.entries(Tools).map(([k,t])=>[k,t.def] as [string, FunctionParams]))

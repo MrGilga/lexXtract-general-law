@@ -1,8 +1,7 @@
-
-import type { Stored } from "../model/db";
-import { LocalStored } from "../model/helpers";
+import { LocalStored, type Store } from "../model/db";
 import { validateSchema, type Pattern } from "../model/pattern";
-import type { Agent, FunctionDef, JsonData, Message, Module } from "../model/types";
+import type { Agent, FunctionParams, JsonData, Message, Module } from "../model/types";
+import { runTool } from "./functions";
 import { chat, type ModelMessage, type ModelTool } from "./request";
 
 
@@ -55,7 +54,7 @@ export const msgAgent = async (mod: Module, agent_id: string, msg: string, role:
 export const runningAgents = LocalStored<string[]>("running_agents", [String], [])
 runningAgents.set([])
 
-const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> => {
+export const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> => {
   let ag = await _get_agent(mod, agent_id)
   let hist: Message[] = await Promise.all( Array.from({length:ag.get().msgs_ctr}).map((_,i)=>_get_msg(mod, agent_id, i).then(x=>x.get())))
   let tools: ModelTool[] = Object.entries(mod.functions.get()).filter(([name])=> ag.get().tools.includes(name)).map(([name, def])=>(
@@ -79,7 +78,9 @@ const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> =>
     for (let msg of r.messages){
       if ("type" in msg && msg.type == "function_call"){
 
-        proms.push(mkRunner(mod, mod.functions.get()[msg.name]!)(JSON.parse(msg.arguments))
+        // proms.push(mkRunner(mod, mod.functions.get()[msg.name]!)
+        //   (JSON.parse(msg.arguments))
+        proms.push(runTool(mod, msg.name, JSON.parse(msg.arguments))
         .then(ret=> outputs.get(msg.call_id)!({type: "function_call_output", call_id: msg.call_id, output: JSON.stringify(ret) ?? "OK"})))
       }
       
@@ -91,67 +92,22 @@ const runagent = async (mod: Module, agent_id: string): Promise<ModelMessage> =>
   })
 }
 
-export const viewAgent = (mod: Module, agent_id: string, onMsg: (msg: Stored<Message>)=>void)=>{
+export const viewAgent = (mod: Module, agent_id: string, onMsg: (msg: Store<Message>)=>void)=>{
   let msgc = 0
   mod.db<Agent>(agent_id, AgentPattern).then(ag=>{
-    let update = async ()=>{
-      let proms : Promise<Stored<Message>>[] = []
-      while(msgc < ag.get().msgs_ctr){
+    console.log("Viewing agent", msgc,  agent_id, ag.get().msgs_ctr)
+    let update = async (ag: Agent)=>{
+      let proms : Promise<Store<Message>>[] = []
+      while(msgc < ag.msgs_ctr){
         let c= msgc;
         proms.push(_get_msg(mod, agent_id, c))
-
         msgc++
       }
       await Promise.all(proms).then(msgs=>msgs.forEach(onMsg))
     }
-    update()
-    ag.onupdate(()=>(update()))})
+    ag.onupdate(update)
+  })
 }
 
-
-export const mkRunner = (module:Module, v: FunctionDef): (args:{[key:string]:JsonData})=>Promise<JsonData> =>{
-
-  return  async (args:{[key:string]:JsonData})=>{
-    args = {...args}
-    validateSchema({type: "object", properties: v.parameters, required: Object.keys(v.parameters)}, args)
-    let reads = v.reads || []
-    let writes = v.writes || []
-
-    let start_agent = (prompt: string, tools:string[]) =>
-      startAgent(module, prompt, tools)
-      .then(agent_id=>
-        runagent(module, agent_id)
-        .then(resp => ({
-          agent_id,
-          response: ("role" in resp) ? resp.content : "Agent started. No response."
-        }))
-      )
-    let msg_agent = (agent_id: string, msg: string) => msgAgent(module, agent_id, msg)
-
-    new Set(reads.concat(writes))
-    .forEach(cap=>{
-
-      if (cap == "agents"){
-        if (writes.includes("agents"))
-          args["agents"] = {start: start_agent as any, message: msg_agent as any}
-        return
-      }
-      let section = module[cap as keyof Module] as Stored<any>
-      args[cap] = {
-        ...(reads.includes(cap) ? {get: section.get as any} : {}),
-        ...(writes.includes(cap) ? {set: section.set} as any : {}),
-        ...(reads.includes(cap) && writes.includes(cap) ? {update: section.update} as any : {})
-      }
-    })
-
-    let func = new Function(...Object.keys(args), v.code)
-    try{
-      return await func(...Object.values(args)) ?? "OK" as JsonData
-    }catch(e){
-      console.error("Error running function", e)
-      return {error: e instanceof Error ? e.message : String(e)} as JsonData
-    }
-  }
-}
 
 

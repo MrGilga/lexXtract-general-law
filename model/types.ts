@@ -1,5 +1,5 @@
 // import type { FunctionDef } from "../web/agent_functions"
-import type { Stored } from "./db"
+import type { Store } from "./db"
 import type { Pattern } from "./pattern"
 
 export type Prompt = string
@@ -18,13 +18,15 @@ export type ModPath = {
 }
 export type Capability = "documents" | "extraction" | "functions" | "taxonomy" | "prompt" | "agents"
 
-export type FunctionDef = {
+export type FunctionParams = {
   parameters: Record<string, JSONSchema>,
   description?: string,
   reads?: Capability[],
   writes?: Capability[],
-  code: string
+  // code: string
 }
+
+
 
 export type Extraction = {
   [category: string]: {
@@ -40,7 +42,7 @@ export type Extraction = {
         sources: {
           documentId: string,
           excerpt: string,
-        }
+        }[]
       }
     }
   }
@@ -48,13 +50,13 @@ export type Extraction = {
 
 export type Module = {
   path: ModPath,
-  db: <T extends JsonData>(key:string, pattern:Pattern, args?: {upsertValue?:T, defaultValue?:T})=>Promise<Stored<T>>,
-  taxonomy: Stored<Taxonomy>
-  documents: Stored<{[key:string]: string}>,
-  extraction: Stored<Extraction>,
-  functions: Stored<{[key:string]: FunctionDef}>,
-  prompt: Stored<string>,
-  agents: Stored<string[]>
+  db: <T extends JsonData>(key:string, pattern:Pattern, args?: {upsertValue?:T, defaultValue?:T})=>Promise<Store<T>>,
+  taxonomy: Store<Taxonomy>
+  documents: Store<{[key:string]: string}>,
+  extraction: Store<Extraction>,
+  functions: Store<{[key:string]: FunctionParams}>,
+  prompt: Store<string>,
+  agents: Store<string[]>
 }
 
 export type App = {

@@ -1,20 +1,74 @@
-import { LocalStored } from "./helpers"
 import {  type JsonData } from "./types"
 import { DbConnection, type ErrorContext, type SubscriptionEventContext } from "./module_bindings"
-import { fill, validate, type Pattern } from "./pattern"
+import { ANY, fill, validate, type Pattern } from "./pattern"
 import { hash } from "./hash"
 
 
 
-export type Stored <T extends JsonData> = {
-  key:string
+export const storage = typeof window !== "undefined" ?
+  localStorage:
+  (()=>{
+    const db = new Map<string, string>()
+    return {
+      setItem:(key: string, value: string)=> {db.set(key, value)},
+      getItem:(key: string): string | null => db.get(key) ?? null,
+      clear:()=> {db.clear()}
+    }
+  })()
+
+export type Store <T extends JsonData> = {
   pattern: Pattern
   get: ()=> T
   set: (data:T)=>void,
-  onupdate: (listener:()=>void)=>void
-  update: (updater: (data:T)=>T | Promise<T> | void) => void
-  map: (fn: (v:T)=>T) => Stored<T>
+  onupdate: (listener:(t:T)=>void, deferred? : true)=>void
+  update: (updater: (data:T)=>T | void) => void
+  map: <U extends JsonData>(fn: (v:T)=>U, pat?:Pattern) => Store<U>
 }
+
+
+const mkStore = <T extends JsonData> (getter: ()=>T, setter: (t:T)=>void, pattern: Pattern): Store <T> => {
+  let listeners : ((data:T)=>T | Promise<T> | void)[] = []
+  let val = getter()
+  try{
+    validate(pattern, val)
+  }catch(e){
+    val = fill(pattern) as T
+  }
+  let str = JSON.stringify(val)
+  let set = (v:T)=>{
+    let ns = JSON.stringify(v)
+    if (ns == str) return
+    validate(pattern, v)
+    val = v
+    str = ns
+    listeners.forEach(f=>f(v))
+    setter(v)
+  }
+  let onupdate = (ls:(t:T)=>void, dd?:true)=>{
+    if (!dd) ls(val)  
+    listeners.push(ls)
+  }
+  return {
+    pattern,
+    get: ()=>val,
+    set, onupdate,
+    update: (f:(t:T)=>T | void)=>{
+      let r = f(val)
+      if (r!=undefined) set(r)
+    },
+    map: <U extends JsonData>(fn: (v:T)=>U, pat: Pattern = ANY) => {
+      let mapped = mkStore<U>(()=>fn(val), v=>{}, pat)
+      listeners.push(v=> mapped.set(fn(v)))
+      return mapped
+    }
+  } 
+}
+
+export const LocalStored = <T extends JsonData> (key: string, pattern: Pattern, defaultValue?: T) =>
+  mkStore<T>(()=>JSON.parse(storage.getItem(key)!) ?? defaultValue  ?? fill(pattern) as T, v=> storage.setItem(key, JSON.stringify(v)), pattern)
+
+export const noStore = <T extends JsonData>(pattern: Pattern, defaultValue?: T) => mkStore<T>(()=> defaultValue ?? fill(pattern) as T, v=>{}, pattern)
+
 
 export type DB = {
   signup(arg: {userid:string, passhash:string}):Promise<void>
@@ -27,8 +81,8 @@ export type DB = {
       defaultValue?:T,
       upsertValue?: T
     },
-  ): Promise<Stored<T>>
-  saving: number,
+  ): Promise<Store<T>>
+  saving: Store<number>,
 }
 
 let rand = (digits:number) => Math.floor(Math.random()*10**digits).toString().padStart(digits, "0")
@@ -43,12 +97,12 @@ export const User:Pattern = {
 export const randUser = ()=>({userid: 'u' + rand(4), passhash: hash(rand(6))})
 
 
-
 export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
   DbConnection.builder()
   .withUri("wss://maincloud.spacetimedb.com/lexxtract")
   .withDatabaseName("lexxtract")
   .onConnect((c)=>{
+    console.info("DB connected.")
     let localUser = LocalStored<User>("current_user_remote_hashed", User, randUser())
     let pwd = ()=> localUser.get().passhash
 
@@ -77,63 +131,35 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
       })
     }
 
-
-    const hot_cache = new Map<string, Stored<JsonData>>()
-
-    function mkStored<T extends JsonData>(key:string, pattern:Pattern, value:T, owner?:string): Stored<T>{
-      try{ validate(pattern, value) }
-      catch(e){ value = fill(pattern) as T }
-
-      let cacheS = JSON.stringify(value)
-
-      const listeners: (()=>void)[] = []
-      const set = async (data:T) =>{
-        let newS = JSON.stringify(data)
-        if (cacheS== newS){return}
-        console.log("setting new value for", owner ?? db.userid, key, "new value:", data)
-        validate(pattern, data)
-        value = data as T
-        cacheS = newS
-        listeners.forEach(l=>l())
-        db.saving++;
-        await c.procedures.setitem({owner: owner ?? db.userid, passhash: pwd(), key, value: JSON.stringify(data)})
-        .then((r)=>{
-          db.saving--;
-          if (r.tag != "Success"){throw new Error("Failed to set item in DB: " + JSON.stringify(r))}
-        })
-      }
-      
-      let res :Stored<T> = {
-        key,
-        pattern,
-        get: ()=>value,
-        set,
-        update: async x=> {
-          let p = await x(value)
-          if (p!=undefined) set(p)
-        },
-        onupdate: f=>{listeners.push(f)}
-      }
-
-      return res
-    }
-
+    const hot_cache = new Map<string, Store<JsonData>>()
     const get = async <T extends JsonData> (key:string, pattern:Pattern, args: {owner?:string, upsertValue?: T, defaultValue?:T} = {}) => {
       let owner = args.owner || db.userid
       let owner_key = mkkey(owner, key)
       if (!hot_cache.has(owner_key)){
-        let value = args.upsertValue != undefined ? null : await _get(owner, key).then(v=> v ?? args.defaultValue ?? null) as T
-        hot_cache.set(owner_key, mkStored(key, pattern, value, owner) as any as Stored<JsonData>)
+        let value = args.upsertValue != undefined ? null : await _get(owner, key).then(v=> v ?? args.defaultValue ?? null) 
+        hot_cache.set(owner_key, mkStore(()=>value , async (v)=>{
+          db.saving.update(x=>x+1)
+
+          console.log("saving: ", db.saving.get())
+          c.procedures.setitem({owner, passhash: pwd(), key, value: JSON.stringify(v)})
+          .then((r)=>{
+            db.saving.update(x=>x-1)
+            if (r.tag != "Success"){throw new Error("Failed to set item in DB: " + JSON.stringify(r))}
+          })
+          .catch(e=>{
+            db.saving.update(x=>x-1)
+            console.error("Failed to set item in DB", e)
+          })
+        }, pattern))
       }
-      let res = hot_cache.get(owner_key)! as any as Stored<T>
+      let res = hot_cache.get(owner_key)! as any as Store<T>
       if (args.upsertValue != undefined) res.set(args.upsertValue)
       return res
     }
 
     let db:DB = {
       userid: localUser.get().userid,
-      saving:0,
-      
+      saving:noStore(Number),
       signup,
       disconnect() {
         c.disconnect()
@@ -144,7 +170,8 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
         if (res.tag != "Success") throw new Error("Failed to change password")
         signup({userid: db.userid, passhash: newhash})
       },
-      get
+      get,
+
     }
     db.signup(localUser.get()).then(()=>res(db))
     .catch(()=>{

@@ -1,5 +1,4 @@
-import type { Stored } from "../model/db";
-import type { LocalStored } from "../model/helpers";
+import type { Store } from "../model/db";
 import type { JsonData } from "../model/types";
 
 export const body = document.body;
@@ -112,11 +111,7 @@ export const htmlElement = (tag:string, text:string, cls:string = "", args?:Part
 }
 
 
-
-
-export type HTMLArg = string | number | HTMLElement | Partial<Record<htmlKey, any>>  | Promise<HTMLArg> | HTMLArg[] | Stored<any> | LocalStored<any>
-
-
+export type HTMLArg = string | number | HTMLElement | Partial<Record<htmlKey, any>>  | Promise<HTMLArg> | HTMLArg[] | Store<any> | Store<any>
 export const html = (tag:string, ...cs:HTMLArg[]):HTMLElement=>{
   let children: HTMLElement[] = []
   let args: Partial<Record<htmlKey, any>> = {}
@@ -136,13 +131,8 @@ export const html = (tag:string, ...cs:HTMLArg[]):HTMLElement=>{
     else if (arg instanceof Array) arg.forEach(add_arg)
     else if ('get' in arg && typeof arg.get === 'function') {
       const el = span()
-      el.textContent = String(arg.get())
       children.push(el)
-      if ('onupdate' in arg && typeof arg.onupdate === 'function') {
-        arg.onupdate(()=>{
-          el.textContent = String(arg.get())
-        })
-      }
+      if ('onupdate' in arg && typeof arg.onupdate === 'function') arg.onupdate(x=>el.replaceChildren(x))
     }
     else args = {...args, ...arg}
   }
@@ -196,7 +186,12 @@ export const input:HTMLGenerator<HTMLInputElement> = (...cs)=>{
   return el
 }
 
-
+export const fromStore = <T extends JsonData>(store: Store<T>, f:(t:T)=>HTMLElement):HTMLElement=>{
+  let el = div()
+  store.onupdate((t)=> el.replaceChildren(f(t)))
+  console.log(el)
+  return el
+}
 
 export const popup = (...cs:HTMLArg[])=>{
 

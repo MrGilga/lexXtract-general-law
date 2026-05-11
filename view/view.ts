@@ -1,19 +1,17 @@
-import  type { FunctionDef, Module, JsonData, JSONSchema, Taxonomy } from "../model/types";
-
+import  type { FunctionParams, Module, JsonData, JSONSchema, Taxonomy } from "../model/types";
 import { type ModPath } from "../model/types";
-import { mkRunner } from "../controller/agent";
+// import { mkRunner } from "../controller/agent";
 import { createModule, db, FunctionDefPattern, ModPathPattern  } from "../controller/module";
-import { randUser, type Stored } from "../model/db";
+import { LocalStored, randUser, type Store } from "../model/db";
 import { hash } from "../model/hash";
-import { LocalStored } from "../model/helpers";
 import { localApiKey } from "../controller/request";
-import { body, button, color, div, errorpopup, h2, h3, input, p, popup, pre, span, style, table, td, tr } from "./html";
+import { body, button, color, display, div, errorpopup, fromStore, h2, h3, input, p, popup, pre, span, style, table, td, tr } from "./html";
 import { jsonView, viewer } from "./json";
 import { fill, fromSchema, type Pattern } from "../model/pattern";
 import { cost_tracker } from "../controller/agent";
 import { mkAgent } from "./agent";
+import { runTool } from "../controller/functions";
 
-let locstring = location.href.split("?")[0] || ""
 
 let urlrequest:ModPath | null = null
 
@@ -25,7 +23,6 @@ location.search.split("&").forEach(param=>{
     try {
       urlrequest = JSON.parse(decodeURIComponent(value)) as ModPath;
       console.log("Module request from URL:", urlrequest)
-
     }
     catch(e) {console.error("Failed to parse module from URL", e)}
   }
@@ -48,11 +45,8 @@ let loadUser = async ()=>{
   let module_list = await db.get<ModPath[]>("modules", [ModPathPattern])
 
   let current_module = await db.get<ModPath>("current_module", ModPathPattern ,{ upsertValue: urlrequest ? urlrequest : undefined } )
-  console.log("Current module:", current_module.get())
 
   const show_module = async (mod:ModPath) => {
-
-    console.log("Loading module", mod.owner, mod.name)
 
     let module = await createModule(mod, mkcopy=>{
       let pop = popup(
@@ -62,28 +56,20 @@ let loadUser = async ()=>{
     });
 
     const Taxonomy = viewer(module.taxonomy)
-
-    // module.taxonomy.onupdate(()=>{console.log("taxonomy updated", module.taxonomy.get())})
-
-
     const Documents = div(viewer(module.documents), button("+add", {
       onclick:()=>{
-          let title = prompt("doc title")
-          if (title) module.documents.set({...module.documents.get() , [title] : "content"})
+        let title = prompt("doc title")
+        if (title) module.documents.set({...module.documents.get() , [title] : "content"})
       }
     }))
   
-  
-    // let Functions = await mkFunctions(module)
+
     let Agent = await mkAgent(module)
   
     let Settings =div()
     let mksettings =()=> {
       let pwd = input({type:"password", placeholder:"new password"})
       let apikey = input({ type:"password", placeholder:"new API key"})
-      let usage = p("usage:")
-      cost_tracker.onupdate = () => usage.textContent = "usage: " + cost_tracker.get().toFixed(4)
-      usage.textContent = "usage: " + cost_tracker.get().toFixed(4)
       Settings.replaceChildren (div(
         table(
           style({borderSpacing: "0.5em",}),
@@ -124,15 +110,14 @@ let loadUser = async ()=>{
             }}))
           ),
         ),
-        usage,
+        cost_tracker.map(c=>"usage: " + c.toFixed(4))
       ))
     }
     mksettings()
 
 
-
     let Functions = viewer(module.functions, d=>{
-      return div(Object.entries(d as {[key:string]: FunctionDef}).map(([k,v])=>
+      return div(Object.entries(d as {[key:string]: FunctionParams}).map(([k,v])=>
       {
         let details = div(style({
           paddingLeft: "1em",
@@ -160,7 +145,8 @@ let loadUser = async ()=>{
                       try{
                         pop.remove()
                         pop = popup(h2("executing "+k+ "..."))
-                        let res = await mkRunner(module, v)(args)
+                        // let res = await mkRunner(module, v)(args)
+                        let res = await runTool(module, k, args)
                         pop.remove()
                         pop = popup(h2("result"), jsonView(res))
                       }catch(e){
@@ -175,7 +161,7 @@ let loadUser = async ()=>{
               if (details.childElementCount == 0){
                 details.append(viewer({
                   get: ()=>v,
-                  set: async (a:FunctionDef)=>module.functions.update(fs=>({...fs, [k]: a})),
+                  set: async (a:FunctionParams)=>module.functions.update(fs=>({...fs, [k]: a})),
                   pattern: FunctionDefPattern
                 }))
               }else{
@@ -257,24 +243,6 @@ let loadUser = async ()=>{
       },
       onclick})
 
-    let storedisplay = div(style({
-      position: "fixed",
-      background: color.gray,
-      color: color.green,
-      zIndex: "2000",
-      padding: "1em",
-      borderRadius: ".5em",
-      display:"none",
-
-    }))
-    setInterval(() => {
-      storedisplay.style.display = "none"
-      if (db.saving!=0){
-        storedisplay.style.display = "block"
-        storedisplay.textContent = "saving "+db.saving+" items"
-      }
-    },100)
-
     let share = headbutton("🔗share", ()=>{
           navigator.clipboard.writeText("https://dkormann.github.io/lexXtract-general-law/"+"?module="+encodeURIComponent(JSON.stringify(mod)))
           share.textContent = "✅copied!"
@@ -320,14 +288,12 @@ let loadUser = async ()=>{
       module_list.set([...module_list.get(), newmod])
       current_module.set(newmod)
     })
-
     body.replaceChildren(
-      div(
-        storedisplay,
-        h2("lexxtract : " + (mod.owner == db.userid ? "" : mod.owner + " / ") + (mod.name || "unnamed module"),
-        share, window.origin.includes("localhost") ? share_local : [], pickmod, addmod,
-      ),
-      ),
+      fromStore(db.saving, s=> div(
+        style({position: "fixed",background: color.gray,color: color.green,zIndex: "2000",padding: "1em",borderRadius: ".5em",display: s>0 ? "block" : "none"}),
+        "saving "+s+" item"+(s>1 ? "s" : "")
+      )),
+      div(h2("lexxtract : " + (mod.owner == db.userid ? "" : mod.owner + " / ") + (mod.name || "unnamed module"),share, window.origin.includes("localhost") ? share_local : [], pickmod, addmod),),
       div(
         style({
           marginTop:"1em",
@@ -340,13 +306,9 @@ let loadUser = async ()=>{
       )
     )
   }
-
-  show_module(current_module.get())
-  current_module.onupdate(()=>show_module(current_module.get()))
+  current_module.onupdate(show_module)
 }
 
-if (typeof window !== "undefined"){
-  loadUser()
-}
+if (typeof window !== "undefined"){loadUser()}
 
 

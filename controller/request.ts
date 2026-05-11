@@ -1,5 +1,4 @@
-
-import { LocalStored } from "../model/helpers";
+import { LocalStored } from "../model/db";
 import { parse, stringify} from "../model/json"
 import {type JsonData, type JSONSchema } from "../model/types";
 
@@ -42,7 +41,11 @@ function getApiKey(): string {
 
 export const chat = async (input: ModelMessage[], model: string, tools:ModelTool[]): Promise<{messages:ModelMessage[], cost:number}> =>{
 
-  let body = stringify({model, input, tools}) 
+  let body = stringify({model, input, tools,
+    provider: {
+      sort: "throughput",
+    }
+  }) 
   console.log("Sending request to model with body", body)
 
   let response = await fetch("https://openrouter.ai/api/v1/responses", {

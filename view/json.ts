@@ -44,7 +44,7 @@ export const jsonView : View = (d, path = [], onclick_):HTMLElement =>{
         fontSize:"1.1em",
         color:color.gray,
       },
-      onclick:e=>{
+      onclick:(e:MouseEvent)=>{
       if (ch.style.display == "none"){
         ch.style.display = ""
         toggle.innerText = "-"
