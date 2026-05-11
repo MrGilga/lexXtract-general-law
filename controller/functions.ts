@@ -65,18 +65,33 @@ export const runTool = (mod:Module, name:string, args: JsonData):Promise<JsonDat
 }
 
 
-const specialistAgents : AgentTemplate[] = [
-  {
-    name: "TaxonomyExpert",
-    prompt: ProjectMission+ "You are a taxonomy architect. Your task is to design and maintain the taxonomy for the project. The taxonomy is a hierarchical categorization of legal concepts, with categories and subcategories.",
-    tools: ["viewTaxonomy", "addCategory", "removeCategory", "addSubcategory", "removeSubCategory", "listDocuments", "viewDocument"]
+const TaxonomyExpert : AgentTemplate = {
+  name: "TaxonomyExpert",
+  description: "Start a new Taxonomy Expert agent to design and maintain and explain the taxonomy for the project.",
+  prompt: ProjectMission+ "You are a taxonomy architect. Your task is to design and maintain the taxonomy for the project. The taxonomy is a hierarchical categorization of legal concepts, with categories and subcategories.",
+  tools: ["viewTaxonomy", "addCategory", "removeCategory", "addSubcategory", "removeSubCategory", "listDocuments", "viewDocument"]
+}
+
+const ExtractionExpert : AgentTemplate = {
+  name: "ExtractionExpert",
+  description: "Start a new Extraction Expert agent to extract information from the documents and organize it according to the taxonomy.",
+  prompt: ProjectMission+"You are an extraction expert. Your task is to extract information from the documents and organize it according to the taxonomy. Each piece of information you extract should be categorized under a subcategory in the taxonomy, and should include at least a title, a depiction (a short text describing the item), and source references pointing to the document it was extracted from.",
+  tools: ["viewTaxonomy", "listDocuments", "viewDocument", "addExtraction", "viewExtractions", "removeExtraction"]
+}
+
+const mkstarter = (template: AgentTemplate): Tool => ({
+  def:{
+    description: template.description ? template.description : `Start a new ${template.name} agent with a custom prompt` ,
+    parameters: {
+      prompt: {type: "string"},
+    },
+    reads: [],
+    writes: ["agents"]
   },
-  {
-    name: "ExtractionExpert",
-    prompt: ProjectMission+"You are an extraction expert. Your task is to extract information from the documents and organize it according to the taxonomy. Each piece of information you extract should be categorized under a subcategory in the taxonomy, and should include at least a title, a depiction (a short text describing the item), and source references pointing to the document it was extracted from.",
-    tools: ["viewTaxonomy", "listDocuments", "viewDocument", "addExtraction", "viewExtractions", "removeExtraction"]
+  runner: (taxonomy, documents, extraction, agents, args) => {
+    return agents.start( template.prompt +  (args as {prompt: string}).prompt, template.tools)
   }
-]
+})
 
 export const coordinatorAgent : AgentTemplate = {
   name: "Coordinator",
@@ -84,7 +99,7 @@ export const coordinatorAgent : AgentTemplate = {
   tools: [ "startTaxonomyExpert", "startExtractionExpert", "messageAgent"]
 }
 
-export const basicTools : {[key:string]: Tool} = {
+export const Tools : {[key:string]: Tool} = {
 
   viewTaxonomy: {
     def: {
@@ -137,16 +152,17 @@ export const basicTools : {[key:string]: Tool} = {
         subcategoryName: {type: "string"},
         title: {type: "string"},
         depiction: {type: "string"},
+        sources: toSchema([{documentId: String, excerpt: String}]),
       },
       reads: ["extraction"],
       writes: ["extraction"],
     },
     runner: (_1, _2, extraction, _3, args) => {
-      let {categoryName, subcategoryName, title, depiction} = args as {categoryName: string, subcategoryName: string, title: string, depiction: string}
+      let {categoryName, subcategoryName, title, depiction, sources} = args as {categoryName: string, subcategoryName: string, title: string, depiction: string, sources: {documentId: string, excerpt: string}[]}
       extraction.update(e=>{
         if (!e[categoryName]) e[categoryName] = {}
         if (!e[categoryName][subcategoryName]) e[categoryName][subcategoryName] = {}
-        e[categoryName][subcategoryName][title] = {depiction, sources: [], links: []}
+        e[categoryName][subcategoryName][title] = {depiction, sources, links: []}
         return e
       })
       return "OK"
@@ -175,34 +191,9 @@ export const basicTools : {[key:string]: Tool} = {
       return "OK"
     }
   },
+  startTaxonomyExpert: mkstarter(TaxonomyExpert),
+  startExtractionExpert: mkstarter(ExtractionExpert),
 
-  startExtractionExpert: {
-    def:{
-      description: "start an ExtractionExpert agent with a given prompt",
-      parameters: {
-        prompt: {type: "string"},
-      },
-      reads: ["extraction"],
-      writes: ["extraction", "agents"]
-    },
-    runner: (taxonomy, documents, extraction, agents, args) => {
-      return agents.start((args as {prompt: string}).prompt, specialistAgents.find(a=>a.name == "ExtractionExpert")!.tools)
-    }
-  },
-
-  startTaxonomyExpert: {
-    def:{
-      description: "start a TaxonomyExpert agent with a given prompt",
-      parameters: {
-        prompt: {type: "string"},
-      },
-      reads: ["taxonomy"],
-      writes: ["taxonomy", "agents"]
-    },
-    runner: (taxonomy, documents, extraction, agents, args) => {
-      return agents.start((args as {prompt: string}).prompt, specialistAgents.find(a=>a.name == "TaxonomyExpert")!.tools)
-    }
-  },
 
   messageAgent: {
     def:{
@@ -224,13 +215,6 @@ export const basicTools : {[key:string]: Tool} = {
 
 
 export const launchFunctionTools : {[key:string]: Tool} = {}
-
-
-export const Tools = {
-  ...basicTools
-}
-
-
 
 
 export const functionReps: {[key:string]: FunctionParams} = Object.fromEntries(Object.entries(Tools).map(([k,t])=>[k,t.def] as [string, FunctionParams]))

@@ -23,37 +23,31 @@ export type FunctionParams = {
   description?: string,
   reads?: Capability[],
   writes?: Capability[],
-  // code: string
+}
+
+export type ExtractionItem = {
+  depiction: string,
+  links: {
+    title: string,
+    category: string,
+    subcategory: string,
+    item: string,
+  }[],
+  sources: {
+    documentId: string,
+    excerpt: string,
+  }[]
 }
 
 
-
-export type Extraction = {
-  [category: string]: {
-    [subcategory: string]: {
-      [itemTitle: string]: {
-        depiction: string,
-        links: {
-          title: string,
-          category: string,
-          subcategory: string,
-          item: string,
-        }[],
-        sources: {
-          documentId: string,
-          excerpt: string,
-        }[]
-      }
-    }
-  }
-}
+export type Extraction = { [category: string]: { [subcategory: string]: { [itemTitle: string]: ExtractionItem } } }
 
 export type Module = {
   path: ModPath,
   db: <T extends JsonData>(key:string, pattern:Pattern, args?: {upsertValue?:T, defaultValue?:T})=>Promise<Store<T>>,
   taxonomy: Store<Taxonomy>
   documents: Store<{[key:string]: string}>,
-  extraction: Store<Extraction>,
+    extraction: Store<Extraction>,
   functions: Store<{[key:string]: FunctionParams}>,
   prompt: Store<string>,
   agents: Store<string[]>

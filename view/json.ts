@@ -6,9 +6,9 @@ import type { JsonData } from "../model/types";
 
 
 type Path = (string | number)[]
-type View = (d:JsonData, path?: Path, onclick?: (path:Path)=>void)=>HTMLElement
+type View = (d:JsonData, path?: Path, onclick?: (path:Path)=>void, childView?: View)=>HTMLElement
 
-export const jsonView : View = (d, path = [], onclick_):HTMLElement =>{
+export const jsonView : View = (d, path = [], onclick_, childView = jsonView):HTMLElement =>{
 
   let onclick = ()=>onclick_?.(path)
   let mkclickable = (el:HTMLElement)=>{
@@ -20,7 +20,7 @@ export const jsonView : View = (d, path = [], onclick_):HTMLElement =>{
   if (Array.isArray(d)){
     if (path.length == 0 && d.length == 0) return div("[]", style({color:color.gray, fontStyle:"italic", margin}))
     return div(d.map((x,i)=>{
-      let el = jsonView(x, [...path, i], onclick_)
+      let el = childView(x, [...path, i], onclick_)
       el.prepend(span("• ", style({color:color.gray})))
       return mkclickable(el)
     }))
@@ -32,7 +32,7 @@ export const jsonView : View = (d, path = [], onclick_):HTMLElement =>{
   }
   if (path.length == 0 && Object.keys(d).length == 0) return mkclickable(div("{}", style({color:color.gray, fontStyle:"italic", margin})))
   return div(...Object.entries(d).map(([k,v])=>{
-    let ch = jsonView(v, [...path, k], onclick_)
+    let ch = childView(v, [...path, k], onclick_)
     let toggle = button("-", {
       style:{
         background:"unset",
@@ -74,7 +74,6 @@ export const viewer = <T extends JsonData>(
   let update = ()=>{
     el.replaceChildren(displayfn(data.get(), [], pth=>{
       console.log("path clicked", pth)
-      // if (!data.onupdate) return
       let d = get_path(data.get(), pth) as T
       let astext = typeof d == "string"
       let newd = d

@@ -22,6 +22,7 @@ export const AgentPattern : Pattern = {
 
 export type AgentTemplate = {
   name: string,
+  description?: string,
   prompt: string,
   tools: string[]
 }
@@ -38,8 +39,12 @@ const _storeMessage = async (mod: Module, agent_id: string, msg: Message) => {
   return ctr
 }
 
+export const agentCollection = (mod: Module) => mod.db<string[]>("agent_collection", [String])
+
 export const startAgent = async (mod: Module, prompt: string, tools:string[]) =>{
   let id = "agent_" + Math.random().toString(16).slice(2)
+  agentCollection(mod).then(c=> c.update(col=> [...col, id]))
+
   let ag = await _get_agent(mod, id)
   ag.set({ id, msgs_ctr: 0, tools})
   await _storeMessage(mod, id, {role: "system", content: prompt})
@@ -77,9 +82,6 @@ export const runagent = async (mod: Module, agent_id: string): Promise<ModelMess
     }
     for (let msg of r.messages){
       if ("type" in msg && msg.type == "function_call"){
-
-        // proms.push(mkRunner(mod, mod.functions.get()[msg.name]!)
-        //   (JSON.parse(msg.arguments))
         proms.push(runTool(mod, msg.name, JSON.parse(msg.arguments))
         .then(ret=> outputs.get(msg.call_id)!({type: "function_call_output", call_id: msg.call_id, output: JSON.stringify(ret) ?? "OK"})))
       }

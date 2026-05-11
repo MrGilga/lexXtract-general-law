@@ -1,9 +1,9 @@
-import {  msgAgent, runningAgents, startAgent, viewAgent } from "../controller/agent"
+import {  agentCollection, msgAgent, runningAgents, startAgent, viewAgent } from "../controller/agent"
 import { coordinatorAgent } from "../controller/functions"
 
 import type { Module } from "../model/types"
 import { button, color, div, fromStore, h2, input, p, popup, style } from "./html"
-import { jsonView, viewer } from "./json"
+import { jsonView } from "./json"
 
 
 export const mkAgent = async (module:Module)=>{
@@ -35,18 +35,43 @@ export const mkAgent = async (module:Module)=>{
     }),
     mkButton("new chat", newChat),
     running,
+    mkButton("view past agents", ()=>{
+      popup(div(
+        h2("Past Agents"),
+        agentCollection(module).then(c=>c.get().reverse().map(id=>
+          p(mkButton(id, ()=> popup(showChat(module, id))))
+        ))
+      ))
+    })
   )
 
   let el = div( panel, chatel)
-  let hint = p("...")
 
 
-  let showChat = (id:string)=>{
+  if (chats.get().length == 0) await newChat()
+  chats.onupdate(cs=>{
+    let newel = showChat(module, cs[cs.length-1]!)
+    chatel.replaceWith(newel)
+    chatel = newel
+  })
+
+  return el;
+
+}
+
+
+
+
+  let showChat = (module: Module, agent_id:string)=>{
+    console.log("showing chat for agent", agent_id)
+
+    let chatel = div(style({marginBottom: "3em"}))
+    let hint = p("...")
 
     let loader =p("loading chat", )
     chatel.replaceChildren(loader)
     
-    viewAgent(module,id, msg=>{
+    viewAgent(module,agent_id, msg=>{
       console.log("got message from agent", msg.get())
       loader.remove()
       chatel.append(fromStore(msg, d=>{
@@ -72,18 +97,10 @@ export const mkAgent = async (module:Module)=>{
       onkeydown: (e:KeyboardEvent)=>{
         if (e.key == "Enter"){
           chatel.append(hint)
-          msgAgent(module, id, intake.value).then(()=>{ intake.value = "" })
+          msgAgent(module, agent_id, intake.value).then(()=>{ intake.value = "" })
         }
        }
     })
     chatel.append(intake)
+    return chatel
   }
-  if (chats.get().length == 0) await newChat()
-  chats.onupdate(cs=>showChat(cs[cs.length-1]!))
-
-  return el;
-
-}
-
-
-

@@ -1,11 +1,11 @@
-import  type { FunctionParams, Module, JsonData, JSONSchema, Taxonomy } from "../model/types";
+import  type { FunctionParams, JsonData, JSONSchema, ExtractionItem } from "../model/types";
 import { type ModPath } from "../model/types";
-// import { mkRunner } from "../controller/agent";
+
 import { createModule, db, FunctionDefPattern, ModPathPattern  } from "../controller/module";
-import { LocalStored, randUser, type Store } from "../model/db";
+import { LocalStored, randUser } from "../model/db";
 import { hash } from "../model/hash";
 import { localApiKey } from "../controller/request";
-import { body, button, color, display, div, errorpopup, fromStore, h2, h3, input, p, popup, pre, span, style, table, td, tr } from "./html";
+import { body, button, color, display, div, errorpopup, fromStore, h2, h3, input, margin, p, padding, popup, pre, span, style, table, td, tr } from "./html";
 import { jsonView, viewer } from "./json";
 import { fill, fromSchema, type Pattern } from "../model/pattern";
 import { cost_tracker } from "../controller/agent";
@@ -180,7 +180,28 @@ let loadUser = async ()=>{
     const sections : {[key:string]: HTMLElement} = {
       Taxonomy,
       Documents,
-      Extract: viewer(module.extraction),
+      Extract: viewer(
+        module.extraction, (j,pt,onc)=> jsonView(j, pt, onc, (j,pp, onc)=>jsonView(
+            j, pp, onc, (j, ppp, onc)=>{
+              let d = j as {[key:string]: ExtractionItem}
+              return div(
+                Object.entries(d).map(([key, item])=> div(
+                  {style:{
+                    marginLeft: "2em",
+                    border: `1px solid ${color.gray}`,
+                    borderRadius: "1em",
+                    marginBottom: "1em",
+                    padding: "1em",
+                  },},
+                  p(style({fontWeight:"bold"}), key),
+                  jsonView(item.depiction, [...ppp ?? [], key, "depiction"], onc),
+                  item.links.length ? div(p("links:") ): [],
+                  item.sources.length ? div(p(span("sources:"),jsonView(item.sources, [...ppp ?? [], key, "sources"], onc))): [],
+                ))
+              )
+            }
+          ))
+        ),
       Agent,
       Functions,
       Settings,
