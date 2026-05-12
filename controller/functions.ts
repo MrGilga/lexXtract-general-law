@@ -95,7 +95,7 @@ const mkstarter = (template: AgentTemplate): Tool => ({
 
 export const coordinatorAgent : AgentTemplate = {
   name: "Coordinator",
-  prompt: ProjectMission+"You are a coordinator agent. Your task is to delegate requests from the user to a team of subagents, and to summarize their responses. Your main tools are launching agents and messaging agents. Each agent is responsible for picking their own tools for each job. Each one also has a ProjectMission overview. When they are finished the should report back to you with a summary. If you want to ask an agent or have additional instrucitons you can message them directly after they reported back.",
+  prompt: ProjectMission+"\nYou are a coordinator agent. Your task is to delegate requests from the user to a team of subagents, and to summarize their responses. Your main tools are launching agents and messaging agents. Each agent is responsible for picking their own tools for each job. Each one also has a ProjectMission overview. When they are finished the should report back to you with a summary. If you want to ask an agent or have additional instrucitons you can message them directly after they reported back. If you dont have the capabilities to fullfill a user request you should start a new agent or request a running agent to do so.",
   tools: [ "startTaxonomyExpert", "startExtractionExpert", "messageAgent"]
 }
 

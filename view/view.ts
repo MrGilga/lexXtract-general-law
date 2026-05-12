@@ -184,6 +184,7 @@ let loadUser = async ()=>{
         module.extraction, (j,pt,onc)=> jsonView(j, pt, onc, (j,pp, onc)=>jsonView(
             j, pp, onc, (j, ppp, onc)=>{
               let d = j as {[key:string]: ExtractionItem}
+              
               return div(
                 Object.entries(d).map(([key, item])=> div(
                   {style:{
@@ -195,8 +196,15 @@ let loadUser = async ()=>{
                   },},
                   p(style({fontWeight:"bold"}), key),
                   jsonView(item.depiction, [...ppp ?? [], key, "depiction"], onc),
-                  item.links.length ? div(p("links:") ): [],
-                  item.sources.length ? div(p(span("sources:"),jsonView(item.sources, [...ppp ?? [], key, "sources"], onc))): [],
+                  item.sources.length ? button(item.sources.length +" sources", {onclick:()=>{
+                    popup(
+                      h2("sources for "+key),
+                      ...item.sources.map((s, i)=>div(
+                        p(style({fontWeight:"bold"}), "source "+(i+1)),
+                        jsonView(s, [...ppp ?? [], key, "sources", String(i)], onc)
+                      ))
+                    )
+                  }}) : [],
                 ))
               )
             }

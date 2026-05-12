@@ -2,7 +2,7 @@ import {  agentCollection, msgAgent, runningAgents, startAgent, viewAgent } from
 import { coordinatorAgent } from "../controller/functions"
 
 import type { Module } from "../model/types"
-import { button, color, div, fromStore, h2, input, p, popup, style } from "./html"
+import { background, button, color, div, fromStore, h2, input, p, popup, style, textarea } from "./html"
 import { jsonView } from "./json"
 
 
@@ -92,15 +92,60 @@ export const mkAgent = async (module:Module)=>{
       hint.remove()
     })
 
-    let intake = input({placeholder:"message",
-      style:{ width:"40vw", position: "fixed", bottom:"1em", fontSize:"1.1em", padding:"0.5em 1em", borderRadius:".4em", border:`4px solid ${color.gray}`, background: color.lightgray, color: color.color },
+
+
+    // let intake = textarea({placeholder:"message",
+    //   style:{ width:"40vw", position: "fixed", bottom:"1em", fontSize:"1.1em", padding:"0.5em 1em", borderRadius:".4em", border:`4px solid ${color.gray}`, background: color.lightgray, color: color.color },
+    //   onkeydown: (e:KeyboardEvent)=>{
+    //     if (e.key == "Enter" && e.metaKey){
+    //       chatel.append(hint)
+    //       msgAgent(module, agent_id, intake.value).then(()=>{ intake.value = "" })
+    //     }
+    //    }
+    // })
+    // chatel.append(intake, button("send", {onclick: ()=>{
+    //   chatel.append(hint)
+    //   msgAgent(module, agent_id, intake.value).then(()=>{ intake.value = "" })
+    // }}))
+
+    let send = (ta: HTMLTextAreaElement) => {
+      chatel.append(hint)
+      msgAgent(module, agent_id, ta.value).then(()=>{ ta.value = "" })
+    }
+
+    let ta = textarea({placeholder:"message",
+      // style:{ width:"40vw", fontSize:"1.1em", padding:"0.5em 1em", borderRadius:".4em", border:`4px solid ${color.gray}`, background: color.lightgray, color: color.color },
+      style: {
+        width: "40vw",
+        background: color.lightgray,
+        color: color.color,
+        fontSize: "1.1em",
+        padding: "0.5em 1em",
+        borderRadius: ".4em",
+        border: `4px solid ${color.gray}`,
+      },
+
       onkeydown: (e:KeyboardEvent)=>{
-        if (e.key == "Enter"){
-          chatel.append(hint)
-          msgAgent(module, agent_id, intake.value).then(()=>{ intake.value = "" })
+        if (e.key == "Enter" && e.metaKey){
+          send(e.currentTarget as HTMLTextAreaElement)
         }
-       }
+        ta.rows = ta.value.split("\n").length
+      },
+      oninput: (e)=>{
+        ta.rows = ta.value.split("\n").length
+      }
     })
+    ta.rows = 1
+    let intake = div(
+      style({
+        position: "fixed",
+        bottom:"1em",
+        left: "50%",
+        transform: "translateX(-50%)",
+        display: "flex",
+        gap: "0.5em",
+      }),
+      ta, button("send", {onclick: (e)=>{send(ta)}}))
     chatel.append(intake)
     return chatel
   }
