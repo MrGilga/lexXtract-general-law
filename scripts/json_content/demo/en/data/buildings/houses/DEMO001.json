@@ -1,0 +1,10 @@
+{
+  "id": "DEMO001",
+  "name": "Sample House",
+  "depiction": "<p>This is a minimal demo entry served from <code>json_content</code>.</p>",
+  "sort_order": 1,
+  "taxonomy": {
+    "category": "buildings",
+    "subcategory": "houses"
+  }
+}

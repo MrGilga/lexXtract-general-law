@@ -83,7 +83,8 @@ export type DB = {
     },
   ): Promise<Store<T>>
   saving: Store<number>,
-  publish: (key:string, del:boolean) => Promise<void>
+  publish: (owner: string, module: string, version:string, del:boolean) => Promise<void>
+  get_published: () => Promise<{owner: string, module: string, version:string}[]>
 }
 
 let rand = (digits:number) => Math.floor(Math.random()*10**digits).toString().padStart(digits, "0")
@@ -177,12 +178,20 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
         signup({userid: db.userid, passhash: newhash})
       },
       get,
-      publish : (key:string, del:boolean)=> c.procedures.publish({owner: db.userid, passhash: pwd(), key, del})
+      publish : (owner: string, module: string,version:string, del:boolean)=>
+        c.procedures.publish({owner: db.userid, passhash: pwd(), module, version, del})
         .then(r=>{
           if (r.tag == "Err") throw new Error("Failed to publish")
-          else console.log("Published: ", key, del)
+          else console.log("Published:",  module, del)
+        }),
+      get_published: ()=>{
+        return new Promise((rs, rj)=>{
+          c.subscriptionBuilder()
+          .onApplied(c=> rs(Array.from(c.db.published.iter())))
+          .onError((e: ErrorContext)=> rj(e.event ?? new Error("Unknown DB subscription error")))
+          .subscribe(`select * from published`)
         })
-
+      }
     }
     db.signup(localUser.get()).then(()=>res(db))
     .catch(()=>{

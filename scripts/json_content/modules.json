@@ -1,0 +1,11 @@
+{
+  "modules": [
+    {
+      "id": "demo",
+      "name": "Demo Module",
+      "sort_order": 1,
+      "module_type": "demo",
+      "location": "demo"
+    }
+  ]
+}

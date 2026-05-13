@@ -11,5 +11,7 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  ownerKey: __t.string().primaryKey().name("owner_key"),
+  owner: __t.string(),
+  module: __t.string(),
+  version: __t.string(),
 });

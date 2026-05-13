@@ -52,12 +52,8 @@ const tablesSchema = __schema({
   published: __table({
     name: 'published',
     indexes: [
-      { accessor: 'owner_key', name: 'published_owner_key_idx_btree', algorithm: 'btree', columns: [
-        'ownerKey',
-      ] },
     ],
     constraints: [
-      { name: 'published_owner_key_key', constraint: 'unique', columns: ['ownerKey'] },
     ],
   }, PublishedRow),
   storage: __table({

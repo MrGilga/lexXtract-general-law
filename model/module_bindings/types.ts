@@ -31,7 +31,9 @@ export const PublishResult = __t.enum("PublishResult", {
 export type PublishResult = __Infer<typeof PublishResult>;
 
 export const Published = __t.object("Published", {
-  ownerKey: __t.string(),
+  owner: __t.string(),
+  module: __t.string(),
+  version: __t.string(),
 });
 export type Published = __Infer<typeof Published>;
 

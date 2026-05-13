@@ -17,7 +17,11 @@ const spacetimedb = schema({
   ),
   published: table(
     { public: true },
-    { owner_key: t.string().primaryKey(), }
+    {
+      owner: t.string(),
+      module: t.string(),
+      version: t.string(),
+    }
   )
 });
 
@@ -72,13 +76,12 @@ export const setitem = spacetimedb.procedure(
 )
 
 export const publish = spacetimedb.procedure(
-  {owner: t.string(), passhash:t.string(), key: t.string(), del: t.bool()},
+  {owner: t.string(), passhash:t.string(), module: t.string(), version: t.string(), del: t.bool()},
   t.enum("publishResult", ["success", "err"]),
-  (ctx, {owner, passhash, key, del})=> ctx.withTx(c=>{
+  (ctx, {owner, passhash, module, version, del})=> ctx.withTx(c=>{
     if (!checkAuth(c, owner, passhash)) return err
-    let owner_key = mkkey(owner, key)
-    if (del) c.db.published.owner_key.delete(owner_key)
-    else c.db.published.insert({owner_key})
+    if (del) c.db.published.delete({owner, module, version})
+    else c.db.published.insert({owner, module, version})
     return ok
   })
 )

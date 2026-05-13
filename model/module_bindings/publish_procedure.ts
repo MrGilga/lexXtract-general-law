@@ -17,7 +17,8 @@ import {
 export const params = {
   owner: __t.string(),
   passhash: __t.string(),
-  key: __t.string(),
+  module: __t.string(),
+  version: __t.string(),
   del: __t.bool(),
 };
 export const returnType = PublishResult
