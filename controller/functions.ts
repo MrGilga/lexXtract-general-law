@@ -181,15 +181,18 @@ export const Tools : {[key:string]: Tool} = {
       parameters: {
         categoryName: {type: "string"},
         subcategoryName: {type: "string"},
+        description: {type: "string"}
       },
       reads: ["taxonomy"],
       writes: ["taxonomy"],
     },
     runner: (taxonomy:Store<Taxonomy>, _2, _3, _4, args) => {
-      let {categoryName, subcategoryName} = args as {categoryName: string, subcategoryName: string}
+      let {categoryName, subcategoryName, description} = args as {categoryName: string, subcategoryName: string, description: string}
       taxonomy.update(t=>{
       
         if (!t.categories[categoryName]) t.categories[categoryName] = {description: "", subCategories: {}}
+
+        t.categories[categoryName].subCategories[subcategoryName] = {description, itemSchema: {}} 
 
         return t
       })

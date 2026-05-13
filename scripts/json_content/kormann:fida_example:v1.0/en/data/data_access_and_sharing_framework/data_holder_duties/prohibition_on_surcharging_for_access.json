@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_data_access_and_sharing_framework_data_holder_duties_prohibition_on_surcharging_for_access",
+  "name": "Prohibition on Surcharging for Access",
+  "depiction": "Data holders are prohibited from charging customers or authorized third parties for accessing or sharing customer financial data under FIDA.",
+  "taxonomy": {
+    "category": "Data Access and Sharing Framework",
+    "subcategory": "Data Holder Duties"
+  }
+}

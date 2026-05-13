@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_scope_and_definitions_regulated_entities_and_persons_customer_natural_and_legal_persons",
+  "name": "Customer Natural and Legal Persons",
+  "depiction": "Both natural persons and legal entities, including SMEs not exceeding certain thresholds, are recognized as customers with rights under FIDA.",
+  "taxonomy": {
+    "category": "Scope and Definitions",
+    "subcategory": "Regulated Entities and Persons"
+  }
+}

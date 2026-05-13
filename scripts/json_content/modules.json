@@ -6,6 +6,13 @@
       "sort_order": 1,
       "module_type": "demo",
       "location": "demo"
+    },
+    {
+      "id": "kormann:fida_example:v1.0",
+      "name": "fida_example",
+      "sort_order": 0,
+      "module_type": "extraction",
+      "location": "kormann:fida_example:v1.0"
     }
   ]
 }

@@ -8,6 +8,7 @@ import { stringify } from "../model/json";
 import { toSchema, fromSchema, type Pattern, validate } from "../model/pattern";
 
 import { readFile, writeFile } from "node:fs/promises"
+import { mkdir } from "node:fs/promises";
 
 
 type ModuleParams = {
@@ -39,6 +40,7 @@ type ItemParams = {
   id: string,
   name: string,
   depiction: string,
+  sort_order: number,
   taxonomy: {
     category: string,
     subcategory: string
@@ -75,8 +77,8 @@ console.log(module_list)
 
 let update = ()=>{
   db.get_published().then(mods=>mods.forEach(async mod=>{
-    let modid = mod.owner + "/" + mod.module + "/" + mod.version
-    if (module_list.modules.some(l=> l.id == modid)) return
+    let modid = mod.owner + ":" + mod.module + ":" + mod.version
+    // if (module_list.modules.some(l=> l.id == modid)) return
     let mod_data = await createModule({owner: mod.owner, name: mod.module}, ()=>{})
     let tax = mod_data.taxonomy.get()
     let taxonomyParams : TaxonomyParams = {
@@ -94,29 +96,38 @@ let update = ()=>{
           }))
         }))
       }
+
     };
+
+    console.log(stringify(taxonomyParams))
 
     let proms : Promise<void>[] = []
 
-    proms.push(writeFile(`${path}/${modid}/en/taxonomy.json`, stringify(taxonomyParams)))
+    await mkdir(`${path}/${modid}/en`, {recursive: true})
+    proms.push( writeFile(`${path}/${modid}/en/taxonomy.json`, stringify(taxonomyParams)))
 
-    Object.entries(mod_data.extraction.get()).forEach(([catName, cat])=>{
-      Object.entries(cat).forEach(([subcatName, subcat])=>{
-        Object.entries(subcat).forEach(([itemName, item])=>{
 
+    for (const [catName, cat] of Object.entries(mod_data.extraction.get())) {
+      const safe = (s:string) => s.replaceAll(/[^a-z0-9]/gi, "_").toLowerCase()
+      const mkId = (s:string) => safe(s)
+      const itemId = (catName:string, subcatName:string, itemName:string) => `${modid}_${mkId(catName)}_${mkId(subcatName)}_${mkId(itemName)}`
+      let categoryDir = `${path}/${modid}/en/data/${mkId(catName)}`
+      await mkdir(categoryDir, {recursive: true})
+      for (const [subcatName, subcat] of Object.entries(cat)) {
+        let subcategoryDir = `${categoryDir}/${mkId(subcatName)}`
+        await mkdir(subcategoryDir, {recursive: true})
+        for (const [itemName, item] of Object.entries(subcat)) {
           let itemParams:ItemParams= {
-            id: `${modid}_${catName}_${subcatName}_${itemName}`,
+            id: itemId(catName, subcatName, itemName),
             name: itemName,
+            sort_order: 0,
             depiction: item.depiction,
-            taxonomy: {
-              category: catName,
-              subcategory: subcatName
-            }
+            taxonomy: { category: catName, subcategory: subcatName }
           }
-          proms.push(writeFile(`${path}/${modid}/en/data/${catName}/${subcatName}/${itemName}.json`, stringify(itemParams)))
-        })
-      })
-    })
+          await writeFile(`${subcategoryDir}/${mkId(itemName)}.json`, stringify(itemParams))
+        }
+      }
+    }
 
     await Promise.all(proms)
 
@@ -124,14 +135,14 @@ let update = ()=>{
       id: modid,
       name: mod.module,
       sort_order: 0,
-      module_type: "extraction",
+      module_type: "demo",
       location: modid
     }
 
     module_list.modules.push(moduleParams)
     await writeFile( path + "/modules.json", stringify(module_list))
 
-
   }))
 }
 
+update()

@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_scope_and_definitions_financial_data_scope_customer_account_data_coverage",
+  "name": "Customer Account Data Coverage",
+  "depiction": "FIDA covers customer account data including transaction history, account balances, and payment data held by credit institutions and payment service providers.",
+  "taxonomy": {
+    "category": "Scope and Definitions",
+    "subcategory": "Financial Data Scope"
+  }
+}

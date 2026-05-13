@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_consent_and_permissions_ongoing_permission_management_periodic_reconfirmation_obligation",
+  "name": "Periodic Reconfirmation Obligation",
+  "depiction": "Data holders and third parties must periodically reconfirm customer permissions, with automatic expiration if the customer does not renew consent within specified timeframes.",
+  "taxonomy": {
+    "category": "Consent and Permissions",
+    "subcategory": "Ongoing Permission Management"
+  }
+}

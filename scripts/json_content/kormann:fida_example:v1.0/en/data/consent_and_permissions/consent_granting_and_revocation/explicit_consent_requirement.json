@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_consent_and_permissions_consent_granting_and_revocation_explicit_consent_requirement",
+  "name": "Explicit Consent Requirement",
+  "depiction": "Customers must provide explicit, informed consent before any third party can access their financial data, with clear disclosure of purpose and scope.",
+  "taxonomy": {
+    "category": "Consent and Permissions",
+    "subcategory": "Consent Granting and Revocation"
+  }
+}

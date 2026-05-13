@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_scope_and_definitions_financial_data_scope_exclusion_of_raw_aggregated_statistics",
+  "name": "Exclusion of Raw Aggregated Statistics",
+  "depiction": "Anonymized and aggregated statistical data that cannot be re-identified falls outside the scope of FIDA's data sharing obligations.",
+  "taxonomy": {
+    "category": "Scope and Definitions",
+    "subcategory": "Financial Data Scope"
+  }
+}

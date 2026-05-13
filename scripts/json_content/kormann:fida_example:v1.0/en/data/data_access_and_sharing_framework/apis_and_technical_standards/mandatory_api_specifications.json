@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_data_access_and_sharing_framework_apis_and_technical_standards_mandatory_api_specifications",
+  "name": "Mandatory API Specifications",
+  "depiction": "Data holders must implement standardized APIs based on common EU technical standards to ensure interoperability and seamless data sharing across the single market.",
+  "taxonomy": {
+    "category": "Data Access and Sharing Framework",
+    "subcategory": "APIs and Technical Standards"
+  }
+}

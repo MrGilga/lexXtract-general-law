@@ -1,0 +1,34 @@
+{
+  "taxonomy": {
+    "categories": [
+      {
+        "id": "Scope and Definitions",
+        "name": "Scope and Definitions",
+        "sort_order": 0,
+        "description": "Defines the boundaries of the regulation, the types of financial data covered, the entities and persons subject to it, and foundational legal and technical terms.",
+        "subcategories": []
+      },
+      {
+        "id": "Data Access and Sharing Framework",
+        "name": "Data Access and Sharing Framework",
+        "sort_order": 0,
+        "description": "Core operational rules governing how financial data is accessed by customers and third parties, the duties of data holders, and the technical mechanisms enabling data sharing.",
+        "subcategories": []
+      },
+      {
+        "id": "Consent and Permissions",
+        "name": "Consent and Permissions",
+        "sort_order": 0,
+        "description": "Rules and procedures governing how customers grant, manage, and withdraw consent or permissions for access to their financial data by third parties.",
+        "subcategories": []
+      },
+      {
+        "id": "Accountability and Enforcement",
+        "name": "Accountability and Enforcement",
+        "sort_order": 0,
+        "description": "Allocation of liability across the data sharing chain, supervisory powers, penalties, cross-border coordination, and interplay with regulations like GDPR and PSD2.",
+        "subcategories": []
+      }
+    ]
+  }
+}

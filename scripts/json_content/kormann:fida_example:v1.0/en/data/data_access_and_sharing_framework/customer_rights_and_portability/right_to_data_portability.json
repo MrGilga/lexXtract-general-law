@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_data_access_and_sharing_framework_customer_rights_and_portability_right_to_data_portability",
+  "name": "Right to Data Portability",
+  "depiction": "Customers have the right to receive their financial data in a commonly used, machine-readable format and to transmit it to another data holder or third party.",
+  "taxonomy": {
+    "category": "Data Access and Sharing Framework",
+    "subcategory": "Customer Rights and Portability"
+  }
+}

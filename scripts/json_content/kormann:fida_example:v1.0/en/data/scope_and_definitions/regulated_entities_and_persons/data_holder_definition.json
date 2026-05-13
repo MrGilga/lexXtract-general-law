@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_scope_and_definitions_regulated_entities_and_persons_data_holder_definition",
+  "name": "Data Holder Definition",
+  "depiction": "Data holders include credit institutions, payment institutions, account information service providers, insurance undertakings, and pension providers that hold customer financial data.",
+  "taxonomy": {
+    "category": "Scope and Definitions",
+    "subcategory": "Regulated Entities and Persons"
+  }
+}

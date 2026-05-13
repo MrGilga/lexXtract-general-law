@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_accountability_and_enforcement_liability_and_risk_allocation_joint_and_several_liability_framework",
+  "name": "Joint and Several Liability Framework",
+  "depiction": "Data holders and third parties may be held jointly and severally liable for damages arising from unauthorized or wrongful data sharing, with recourse provisions between parties.",
+  "taxonomy": {
+    "category": "Accountability and Enforcement",
+    "subcategory": "Liability and Risk Allocation"
+  }
+}

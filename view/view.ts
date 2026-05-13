@@ -322,7 +322,29 @@ let loadUser = async ()=>{
         style({position: "fixed",background: color.gray,color: color.green,zIndex: "2000",padding: "1em",borderRadius: ".5em",display: s>0 ? "block" : "none"}),
         "saving "+s+" item"+(s>1 ? "s" : "")
       )),
-      div(h2("lexxtract : " + (mod.owner == db.userid ? "" : mod.owner + " / ") + (mod.name || "unnamed module"),share, window.origin.includes("localhost") ? share_local : [], pickmod, addmod),),
+      div(h2("lexxtract : " + (mod.owner == db.userid ? "" : mod.owner + " / ") + (mod.name || "unnamed module"),
+        share,
+        window.origin.includes("localhost") ? share_local : [],
+        pickmod,
+        addmod,
+        headbutton("🚀publish" , ()=>{
+          let vinput = input({placeholder:"v1.0"})
+          popup(
+            h2("Publish: ", mod.owner, "/", mod.name), 
+            p("Publishing your module makes it visible to customers on the ETKOM App"),
+            
+            span("version: ", vinput),
+            button("Publish", {
+              onclick:()=>{
+                db.publish(mod.owner, mod.name, vinput.value || vinput.placeholder, false )
+                .then(res=>popup(h2("Pulished successfully!"), p("Module: ", mod.owner, "/", mod.name, " version: ", vinput.value || vinput.placeholder), ))
+                .catch(e=>errorpopup(e as Error))
+
+              }
+            })
+          )
+        })
+      ),),
       div(
         style({
           marginTop:"1em",

@@ -1,0 +1,9 @@
+{
+  "id": "kormann:fida_example:v1.0_data_access_and_sharing_framework_third_party_access_authorized_third_party_registration",
+  "name": "Authorized Third Party Registration",
+  "depiction": "Third parties seeking access to customer financial data must be registered with the competent national authority and meet specified governance and security requirements.",
+  "taxonomy": {
+    "category": "Data Access and Sharing Framework",
+    "subcategory": "Third Party Access"
+  }
+}
