@@ -137,8 +137,6 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
     const get = async <T extends JsonData> (key:string, pattern:Pattern, args: {owner?:string, upsertValue?: T, defaultValue?:T} = {}) => {
       let owner = args.owner || db.userid
 
-      console.log("getting item:", owner, key)
-
       let owner_key = mkkey(owner, key)
       if (!hot_cache.has(owner_key)){
         let value = args.upsertValue != undefined ? null : await _get(owner, key).then(v=> v ?? args.defaultValue ?? null) 

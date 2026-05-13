@@ -75,7 +75,6 @@ export type Taxonomy = {
       subCategories: {
         [name: string]: {
           description: string,
-          itemSchema: JSONSchema
         }
       }
     }

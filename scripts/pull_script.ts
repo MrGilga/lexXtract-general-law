@@ -78,9 +78,10 @@ console.log(module_list)
 let update = ()=>{
   db.get_published().then(mods=>mods.forEach(async mod=>{
     let modid = mod.owner + ":" + mod.module + ":" + mod.version
-    // if (module_list.modules.some(l=> l.id == modid)) return
+    if (module_list.modules.some(l=> l.id == modid)) return
     let mod_data = await createModule({owner: mod.owner, name: mod.module}, ()=>{})
     let tax = mod_data.taxonomy.get()
+
     let taxonomyParams : TaxonomyParams = {
       taxonomy: {
         categories: Object.entries(tax.categories).map(([catName, cat])=>({
@@ -99,8 +100,7 @@ let update = ()=>{
 
     };
 
-    console.log(stringify(taxonomyParams))
-
+    // console.log(stringify(taxonomyParams))
     let proms : Promise<void>[] = []
 
     await mkdir(`${path}/${modid}/en`, {recursive: true})
@@ -133,7 +133,7 @@ let update = ()=>{
 
     let moduleParams: ModuleParams = {
       id: modid,
-      name: mod.module,
+      name: modid,
       sort_order: 0,
       module_type: "demo",
       location: modid
@@ -145,4 +145,6 @@ let update = ()=>{
   }))
 }
 
-update()
+setInterval(() => {
+  update()
+}, 500);

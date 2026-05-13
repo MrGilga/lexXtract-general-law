@@ -191,8 +191,7 @@ export const Tools : {[key:string]: Tool} = {
       taxonomy.update(t=>{
       
         if (!t.categories[categoryName]) t.categories[categoryName] = {description: "", subCategories: {}}
-
-        t.categories[categoryName].subCategories[subcategoryName] = {description, itemSchema: {}} 
+        t.categories[categoryName].subCategories[subcategoryName] = {description} 
 
         return t
       })
@@ -231,9 +230,13 @@ export const Tools : {[key:string]: Tool} = {
       reads: ["extraction"],
       writes: ["extraction"],
     },
-    runner: (_1, _2, extraction, _3, args) => {
+    runner: (taxonomy, _2, extraction, _3, args) => {
       let {categoryName, subcategoryName, title, depiction, sources} = args as {categoryName: string, subcategoryName: string, title: string, depiction: string, sources: {documentId: string, excerpt: string}[]}
       extraction.update(e=>{
+        
+        if (!taxonomy.get().categories[categoryName]) throw new Error("invalid category valid categories are: "+ Object.keys(taxonomy.get().categories).join(", "))
+        if (!taxonomy.get().categories[categoryName]!.subCategories[subcategoryName]) throw new Error("invalid subcategory valid subcategories for category "+categoryName+" are: "+ Object.keys(taxonomy.get().categories[categoryName]!.subCategories).join(", "))
+
         if (!e[categoryName]) e[categoryName] = {}
         if (!e[categoryName][subcategoryName]) e[categoryName][subcategoryName] = {}
         e[categoryName][subcategoryName][title] = {depiction, sources, links: []}
