@@ -72,7 +72,7 @@ export const mkAgent = async (module:Module)=>{
     chatel.replaceChildren(loader)
     
     viewAgent(module,agent_id, msg=>{
-      console.log("got message from agent", msg.get())
+      // console.log("got message from agent", msg.get())
       loader.remove()
       chatel.append(fromStore(msg, d=>{
         let role = ("role" in d) ? d.role : "output"
@@ -91,22 +91,6 @@ export const mkAgent = async (module:Module)=>{
 
       hint.remove()
     })
-
-
-
-    // let intake = textarea({placeholder:"message",
-    //   style:{ width:"40vw", position: "fixed", bottom:"1em", fontSize:"1.1em", padding:"0.5em 1em", borderRadius:".4em", border:`4px solid ${color.gray}`, background: color.lightgray, color: color.color },
-    //   onkeydown: (e:KeyboardEvent)=>{
-    //     if (e.key == "Enter" && e.metaKey){
-    //       chatel.append(hint)
-    //       msgAgent(module, agent_id, intake.value).then(()=>{ intake.value = "" })
-    //     }
-    //    }
-    // })
-    // chatel.append(intake, button("send", {onclick: ()=>{
-    //   chatel.append(hint)
-    //   msgAgent(module, agent_id, intake.value).then(()=>{ intake.value = "" })
-    // }}))
 
     let send = (ta: HTMLTextAreaElement) => {
       chatel.append(hint)

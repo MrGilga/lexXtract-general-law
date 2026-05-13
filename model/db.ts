@@ -26,9 +26,9 @@ export type Store <T extends JsonData> = {
 }
 
 
-const mkStore = <T extends JsonData> (getter: ()=>T, setter: (t:T)=>void, pattern: Pattern): Store <T> => {
+const mkStore = <T extends JsonData> (request: ()=>T, persist: (t:T)=>void, pattern: Pattern): Store <T> => {
   let listeners : ((data:T)=>T | Promise<T> | void)[] = []
-  let val = getter()
+  let val = request()
   try{
     validate(pattern, val)
   }catch(e){
@@ -42,7 +42,7 @@ const mkStore = <T extends JsonData> (getter: ()=>T, setter: (t:T)=>void, patter
     val = v
     str = ns
     listeners.forEach(f=>f(v))
-    setter(v)
+    persist(v)
   }
   let onupdate = (ls:(t:T)=>void, dd?:true)=>{
     if (!dd) ls(val)  
@@ -83,6 +83,7 @@ export type DB = {
     },
   ): Promise<Store<T>>
   saving: Store<number>,
+  publish: (key:string, del:boolean) => Promise<void>
 }
 
 let rand = (digits:number) => Math.floor(Math.random()*10**digits).toString().padStart(digits, "0")
@@ -134,23 +135,28 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
     const hot_cache = new Map<string, Store<JsonData>>()
     const get = async <T extends JsonData> (key:string, pattern:Pattern, args: {owner?:string, upsertValue?: T, defaultValue?:T} = {}) => {
       let owner = args.owner || db.userid
+
+      console.log("getting item:", owner, key)
+
       let owner_key = mkkey(owner, key)
       if (!hot_cache.has(owner_key)){
         let value = args.upsertValue != undefined ? null : await _get(owner, key).then(v=> v ?? args.defaultValue ?? null) 
-        hot_cache.set(owner_key, mkStore(()=>value , async (v)=>{
-          db.saving.update(x=>x+1)
-
-          console.log("saving: ", db.saving.get())
-          c.procedures.setitem({owner, passhash: pwd(), key, value: JSON.stringify(v)})
-          .then((r)=>{
-            db.saving.update(x=>x-1)
-            if (r.tag != "Success"){throw new Error("Failed to set item in DB: " + JSON.stringify(r))}
-          })
-          .catch(e=>{
-            db.saving.update(x=>x-1)
-            console.error("Failed to set item in DB", e)
-          })
-        }, pattern))
+        hot_cache.set(owner_key, mkStore(
+          ()=>value,
+          async (v)=>{
+            db.saving.update(x=>x+1)
+            console.log("saving: ", db.saving.get(), owner, pwd())
+            c.procedures.setitem({owner, passhash: pwd(), key, value: JSON.stringify(v)})
+            .then((r)=>{
+              db.saving.update(x=>x-1)
+              if (r.tag != "Success"){throw new Error("Failed to set item in DB: " + JSON.stringify(r))}
+            })
+            .catch(e=>{
+              db.saving.update(x=>x-1)
+              console.error("Failed to set item in DB", e)
+            })
+          },
+          pattern))
       }
       let res = hot_cache.get(owner_key)! as any as Store<T>
       if (args.upsertValue != undefined) res.set(args.upsertValue)
@@ -171,6 +177,11 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
         signup({userid: db.userid, passhash: newhash})
       },
       get,
+      publish : (key:string, del:boolean)=> c.procedures.publish({owner: db.userid, passhash: pwd(), key, del})
+        .then(r=>{
+          if (r.tag == "Err") throw new Error("Failed to publish")
+          else console.log("Published: ", key, del)
+        })
 
     }
     db.signup(localUser.get()).then(()=>res(db))

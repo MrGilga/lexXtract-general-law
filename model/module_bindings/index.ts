@@ -37,16 +37,29 @@ import {
 
 // Import all procedure arg schemas
 import * as ChangePasswordProcedure from "./change_password_procedure";
+import * as PublishProcedure from "./publish_procedure";
 import * as SetitemProcedure from "./setitem_procedure";
 import * as SignupProcedure from "./signup_procedure";
 
 // Import all table schema definitions
+import PublishedRow from "./published_table";
 import StorageRow from "./storage_table";
 
 /** Type-only namespace exports for generated type groups. */
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
+  published: __table({
+    name: 'published',
+    indexes: [
+      { accessor: 'owner_key', name: 'published_owner_key_idx_btree', algorithm: 'btree', columns: [
+        'ownerKey',
+      ] },
+    ],
+    constraints: [
+      { name: 'published_owner_key_key', constraint: 'unique', columns: ['ownerKey'] },
+    ],
+  }, PublishedRow),
   storage: __table({
     name: 'storage',
     indexes: [
@@ -67,6 +80,7 @@ const reducersSchema = __reducers(
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
 const proceduresSchema = __procedures(
   __procedureSchema("change_password", ChangePasswordProcedure.params, ChangePasswordProcedure.returnType),
+  __procedureSchema("publish", PublishProcedure.params, PublishProcedure.returnType),
   __procedureSchema("setitem", SetitemProcedure.params, SetitemProcedure.returnType),
   __procedureSchema("signup", SignupProcedure.params, SignupProcedure.returnType),
 );

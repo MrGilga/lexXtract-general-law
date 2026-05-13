@@ -23,6 +23,18 @@ export const Person = __t.object("Person", {
 });
 export type Person = __Infer<typeof Person>;
 
+// The tagged union or sum type for the algebraic type `PublishResult`.
+export const PublishResult = __t.enum("PublishResult", {
+  Success: __t.unit(),
+  Err: __t.unit(),
+});
+export type PublishResult = __Infer<typeof PublishResult>;
+
+export const Published = __t.object("Published", {
+  ownerKey: __t.string(),
+});
+export type Published = __Infer<typeof Published>;
+
 // The tagged union or sum type for the algebraic type `SetResult`.
 export const SetResult = __t.enum("SetResult", {
   Success: __t.unit(),

@@ -72,7 +72,7 @@ export const createModule = async (path: ModPath, tryCopy : (callback:()=>Promis
   ])
 
   const module: Module ={db: mod_db,functions,taxonomy,extraction,documents,prompt,path, agents}
-  if (path.owner == db.userid) await module.functions.set(functionReps)
+  if (path.owner == db.userid) module.functions.set(functionReps)
   return module
 }
 

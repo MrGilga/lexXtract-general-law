@@ -189,7 +189,7 @@ export const input:HTMLGenerator<HTMLInputElement> = (...cs)=>{
 export const fromStore = <T extends JsonData>(store: Store<T>, f:(t:T)=>HTMLElement):HTMLElement=>{
   let el = div()
   store.onupdate((t)=> el.replaceChildren(f(t)))
-  console.log(el)
+  // console.log(el)
   return el
 }
 
