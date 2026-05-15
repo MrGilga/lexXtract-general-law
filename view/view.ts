@@ -329,7 +329,7 @@ let loadUser = async ()=>{
         addmod,
         headbutton("🚀publish" , ()=>{
           let vinput = input({placeholder:"v1.0"})
-          popup(
+          let pop = popup(
             h2("Publish: ", mod.owner, "/", mod.name), 
             p("Publishing your module makes it visible to customers on the ETKOM App"),
             
@@ -337,11 +337,27 @@ let loadUser = async ()=>{
             button("Publish", {
               onclick:()=>{
                 db.publish(mod.owner, mod.name, vinput.value || vinput.placeholder, false )
-                .then(res=>popup(h2("Pulished successfully!"), p("Module: ", mod.owner, "/", mod.name, " version: ", vinput.value || vinput.placeholder), ))
+                .then(()=>{
+                  pop.remove()
+                  popup(h2("Pulished successfully!"), p("Module: ", mod.owner, "/", mod.name, " version: ", vinput.value || vinput.placeholder), )})
                 .catch(e=>errorpopup(e as Error))
 
               }
-            })
+            }),
+            p("past versions:"),
+            db.get_published().then(
+              mods=>table(mods.filter(m=>m.module == mod.name && m.owner == mod.owner).map(m=>
+              tr(
+                td(m.version),
+                td(button("unpublish", {
+                onclick:()=>{
+                  if (confirm("Are you sure you want to unpublish this version? This action cannot be undone.")){
+                    db.publish(m.owner, m.module, m.version, true)
+                    pop.remove()
+                  }
+                }
+              }))))
+            )),
           )
         })
       ),),

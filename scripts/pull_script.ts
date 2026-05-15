@@ -1,15 +1,11 @@
-
 // this script functions 
 // for creating json_content folder
-
 import { exit } from "node:process";
-import { createModule, db, ModPathPattern } from "../controller/module";
+import { createModule, db } from "../controller/module";
 import { stringify } from "../model/json";
-import { toSchema, fromSchema, type Pattern, validate } from "../model/pattern";
-
+import { type Pattern, validate } from "../model/pattern";
 import { readFile, writeFile } from "node:fs/promises"
-import { mkdir } from "node:fs/promises";
-
+import { mkdir, rm } from "node:fs/promises";
 
 type ModuleParams = {
   id: string,
@@ -17,6 +13,7 @@ type ModuleParams = {
   sort_order: number,
   module_type: string,
   location: string
+  downloaded?: true,
 }
 
 type TaxonomyParams = {
@@ -50,14 +47,13 @@ type ItemParams = {
 const ModulePattern: Pattern = {
   id: String,
   name: String,
-  sort_order: Number,
-  module_type: String,
-  location: String
+  "sort_order?": Number,
+  "module_type?": String,
+  location: String,
+  "downloaded?": true
 }
 
-const ModuleListPattern: Pattern = {
-  modules: [ModulePattern]
-}
+const ModuleListPattern: Pattern = { modules: [ModulePattern] }
 
 const [path] = process.argv.slice(2)
 
@@ -66,85 +62,82 @@ if (!path || !path.endsWith("json_content")) {
   exit()
 }
 
-console.info("Pulling module from path", path)
-console.info("pwd:", process.cwd())
 
 let module_list = await readFile( path + "/modules.json").then(d=>JSON.parse(d.toString()) ) as { modules: ModuleParams[] }
-validate(ModuleListPattern, module_list)
+module_list.modules = []    
+const safe = (s:string) => s.replaceAll(/[^a-z0-9]/gi, "_").toLowerCase()
 
-console.log(module_list)
+let loop = async ()=>{
+  validate(ModuleListPattern, module_list)
+  let mods = await db.get_published()
 
-
-let update = ()=>{
-  db.get_published().then(mods=>mods.forEach(async mod=>{
+  for (const mod of mods) {
     let modid = mod.owner + ":" + mod.module + ":" + mod.version
-    if (module_list.modules.some(l=> l.id == modid)) return
-    let mod_data = await createModule({owner: mod.owner, name: mod.module}, ()=>{})
-    let tax = mod_data.taxonomy.get()
+    if (module_list.modules.some(l => l.id == modid)) continue
+    let mod_data = await createModule({owner: mod.owner, name: mod.module}, (c)=>{})
 
+    for (let [catName, cat] of Object.entries(mod_data.extraction.get())) {
+      catName = safe(catName)
+      for (let [subcatName, subcat] of Object.entries(cat)) {
+        subcatName = safe(subcatName)
+        let dir = `${path}/${modid}/en/data/${catName}/${subcatName}`
+        await mkdir(dir, {recursive: true})
+        for (const [itemName, item] of Object.entries(subcat)) {
+
+          let itemParams:ItemParams= {
+            id: `${modid}_${catName}_${subcatName}_${itemName}`,
+            name: itemName,
+            sort_order: 0,
+            depiction: item.depiction,
+            taxonomy: { category: catName, subcategory: subcatName }
+          }
+          await writeFile(`${dir}/${safe(itemName)}.json`, stringify(itemParams))
+        }
+      }
+    }
+
+    let tax = mod_data.taxonomy.get()
     let taxonomyParams : TaxonomyParams = {
       taxonomy: {
         categories: Object.entries(tax.categories).map(([catName, cat])=>({
-          id: catName,
+          // id: `${modid}_${catName}`,
+          id: safe(catName),
           name: catName,
           sort_order: 0,
           description: cat.description,
           subcategories: Object.entries(cat.subCategories).map(([subcatName, subcat])=>({
-            id: subcatName,
+            id: safe(subcatName),
             name: subcatName,
             sort_order: 0,
             description: subcat.description,
           }))
         }))
       }
-
     };
 
-    // console.log(stringify(taxonomyParams))
-    let proms : Promise<void>[] = []
-
     await mkdir(`${path}/${modid}/en`, {recursive: true})
-    proms.push( writeFile(`${path}/${modid}/en/taxonomy.json`, stringify(taxonomyParams)))
 
-
-    for (const [catName, cat] of Object.entries(mod_data.extraction.get())) {
-      const safe = (s:string) => s.replaceAll(/[^a-z0-9]/gi, "_").toLowerCase()
-      const mkId = (s:string) => safe(s)
-      const itemId = (catName:string, subcatName:string, itemName:string) => `${modid}_${mkId(catName)}_${mkId(subcatName)}_${mkId(itemName)}`
-      let categoryDir = `${path}/${modid}/en/data/${mkId(catName)}`
-      await mkdir(categoryDir, {recursive: true})
-      for (const [subcatName, subcat] of Object.entries(cat)) {
-        let subcategoryDir = `${categoryDir}/${mkId(subcatName)}`
-        await mkdir(subcategoryDir, {recursive: true})
-        for (const [itemName, item] of Object.entries(subcat)) {
-          let itemParams:ItemParams= {
-            id: itemId(catName, subcatName, itemName),
-            name: itemName,
-            sort_order: 0,
-            depiction: item.depiction,
-            taxonomy: { category: catName, subcategory: subcatName }
-          }
-          await writeFile(`${subcategoryDir}/${mkId(itemName)}.json`, stringify(itemParams))
-        }
-      }
-    }
-
-    await Promise.all(proms)
-
-    let moduleParams: ModuleParams = {
-      id: modid,
-      name: modid,
-      sort_order: 0,
-      module_type: "demo",
-      location: modid
-    }
-
-    module_list.modules.push(moduleParams)
+    module_list.modules.push({ id: modid, name: modid, sort_order:0, module_type: "demo", location: modid, downloaded: true })
+    await writeFile( path + `/${modid}/en/taxonomy.json`, stringify(taxonomyParams))
     await writeFile( path + "/modules.json", stringify(module_list))
+  }
 
-  }))
+
+  // console.log(`Pulled ${mods.length} modules`)
+  for (const mod of module_list.modules){
+    if (mod.downloaded && !mods.some(m => `${m.owner}:${m.module}:${m.version}` == mod.id)) {
+      console.log(`Module ${mod.id} is in modules.json but not in database, removing...`)
+
+      await rm(`${path}/${mod.id}`, {recursive: true})
+      module_list.modules = module_list.modules.filter(m => m.id != mod.id)
+      await writeFile( path + "/modules.json", stringify(module_list))
+
+    }
+  }
+
+  setTimeout(() => { loop() }, 500);
+
 }
 
-setInterval(() => {
-  update()
-}, 500);
+
+loop()
