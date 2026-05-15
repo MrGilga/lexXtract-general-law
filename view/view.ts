@@ -344,20 +344,23 @@ let loadUser = async ()=>{
 
               }
             }),
-            p("past versions:"),
-            db.get_published().then(
-              mods=>table(mods.filter(m=>m.module == mod.name && m.owner == mod.owner).map(m=>
-              tr(
-                td(m.version),
-                td(button("unpublish", {
-                onclick:()=>{
-                  if (confirm("Are you sure you want to unpublish this version? This action cannot be undone.")){
-                    db.publish(m.owner, m.module, m.version, true)
-                    pop.remove()
+            db.get_published().then( mods=>mods.length == 0 ? [] : [
+                p("past versions:"),
+                table(mods.filter(m=>m.module == mod.name && m.owner == mod.owner).map(m=>
+                tr(
+                  td(m.version),
+                  td(button("unpublish", {
+                  onclick:()=>{
+                    if (confirm("Are you sure you want to unpublish this version? This action cannot be undone.")){
+                      db.publish(m.owner, m.module, m.version, true)
+                      pop.remove()
+                    }
                   }
-                }
-              }))))
-            )),
+                }))))
+              
+                )
+              ]
+            ),
           )
         })
       ),),
