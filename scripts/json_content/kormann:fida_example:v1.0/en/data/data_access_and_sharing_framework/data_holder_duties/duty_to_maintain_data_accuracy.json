@@ -1,9 +1,0 @@
-{
-  "id": "kormann:fida_example:v1.0_data_access_and_sharing_framework_data_holder_duties_duty_to_maintain_data_accuracy",
-  "name": "Duty to Maintain Data Accuracy",
-  "depiction": "Data holders must ensure that customer financial data is accurate, complete, and up to date before sharing it with authorized third parties.",
-  "taxonomy": {
-    "category": "Data Access and Sharing Framework",
-    "subcategory": "Data Holder Duties"
-  }
-}

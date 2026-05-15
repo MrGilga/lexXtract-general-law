@@ -1,9 +1,0 @@
-{
-  "id": "kormann:fida_example:v1.0_consent_and_permissions_permission_models_and_validity_purpose_limited_permissions",
-  "name": "Purpose-Limited Permissions",
-  "depiction": "Consent and permissions must be granular and limited to specific, explicit purposes; blanket or overly broad permissions are not permitted under FIDA.",
-  "taxonomy": {
-    "category": "Consent and Permissions",
-    "subcategory": "Permission Models and Validity"
-  }
-}

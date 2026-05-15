@@ -1,9 +1,0 @@
-{
-  "id": "kormann:fida_example:v1.0_accountability_and_enforcement_supervision_and_penalties_administrative_fines_for_non_compliance",
-  "name": "Administrative Fines for Non-Compliance",
-  "depiction": "Competent authorities may impose administrative fines on data holders or third parties for breaches of FIDA obligations, with penalties scaled to the severity and duration of the infringement.",
-  "taxonomy": {
-    "category": "Accountability and Enforcement",
-    "subcategory": "Supervision and Penalties"
-  }
-}

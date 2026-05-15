@@ -1,9 +1,0 @@
-{
-  "id": "kormann:fida_example:v1.0_data_access_and_sharing_framework_customer_rights_and_portability_real_time_access_entitlement",
-  "name": "Real-Time Access Entitlement",
-  "depiction": "Customers are entitled to access their financial data in real time or near real time, enabling up-to-date financial management and oversight.",
-  "taxonomy": {
-    "category": "Data Access and Sharing Framework",
-    "subcategory": "Customer Rights and Portability"
-  }
-}

@@ -1,9 +1,0 @@
-{
-  "id": "kormann:fida_example:v1.0_data_access_and_sharing_framework_third_party_access_customer_authentication_verification",
-  "name": "Customer Authentication Verification",
-  "depiction": "Third parties must verify customer identity through strong customer authentication mechanisms before requesting access to financial data from data holders.",
-  "taxonomy": {
-    "category": "Data Access and Sharing Framework",
-    "subcategory": "Third Party Access"
-  }
-}
