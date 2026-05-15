@@ -7089,7 +7089,7 @@ var createModule = async (path, tryCopy) => {
   return module;
 };
 
-// scripts/pull_script.ts
+// scripts/pull_module.ts
 var {readFile, writeFile} = (() => ({}));
 var {mkdir, rm} = (() => ({}));
 var ModulePattern = {
