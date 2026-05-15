@@ -1,195 +1,200 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+// this script functions 
+// for creating json_content folder
+import { createModule, db } from "../controller/module";
+import { stringify } from "../model/json";
+import { type Pattern, validate } from "../model/pattern";
+import { readFile, writeFile } from "node:fs/promises"
+import { mkdir, rm } from "node:fs/promises";
 
-import { stringify } from "../model/json.ts";
-import type { JSONSchema, Taxonomy } from "../model/types.ts";
-
-const HOST = "https://maincloud.spacetimedb.com";
-const DB = "lexxtract";
-const OUT = "pulled_modules";
-const KEYS = ["taxonomy", "extraction"] as const;
-
-const ITEM_SCHEMA: JSONSchema = {
-  $schema: "https://json-schema.org/draft/2019-09/schema",
-  $id: "https://enterprisetransformationcircle.com/lexXtract/generated/item.schema.json",
-  title: "item",
-  description: "Generated extraction item schema.",
-  type: "object",
-  properties: {
-    id: { type: "string", pattern: "^[A-Z0-9]{8}$" },
-    parent_id: { type: ["string", "null"] },
-    name: { type: "string" },
-    depiction: { type: "string" },
-    content: { type: "string" },
-    taxonomy: {
-      type: "object",
-      properties: {
-        category: { type: "string" },
-        subcategory: { type: "string" },
-      },
-      required: ["category", "subcategory"],
-      additionalProperties: false,
-    },
-    source: { type: "array", items: { type: "object" } },
-    created_at: { type: "string", format: "date-time" },
-    modified_at: { type: "string", format: "date-time" },
-    created_by: {
-      type: "object",
-      properties: { name: { type: "string" }, job_id: { type: "string" }, schema_id: { type: "string" } },
-      required: ["name"],
-      additionalProperties: false,
-    },
-    modified_by: {
-      type: "object",
-      properties: { name: { type: "string" }, job_id: { type: "string" }, schema_id: { type: "string" } },
-      required: ["name"],
-      additionalProperties: false,
-    },
-    sort_order: { type: ["integer", "null"] },
-    links: { type: "array", items: { type: "object" } },
-  },
-  required: ["id", "name", "depiction", "content", "taxonomy", "created_at", "created_by"],
-  additionalProperties: true,
-};
-
-type StorageRow = [string, string] | { owner_key: string; value: string };
-type ExportFile = { path: string; content: string };
-type PullOptions = { outputRoot?: string; host?: string; database?: string };
-type BuildOptions = PullOptions & { pulledAt?: string };
-type PulledExtraction = Record<string, Record<string, Record<string, { depiction?: string; content?: string }>>>;
-
-const safe = (value: string) => value.replaceAll(/[^a-zA-Z0-9._-]+/g, "_");
-const mkId = (value: string) => safe(value).toLowerCase();
-const ownerPrefix = (owner: string, name: string) => `${owner.replaceAll(":", "_:")}:${name}:`;
-
-const itemId = (categoryName: string, subcategoryName: string, itemTitle: string) => {
-  let hash = 2166136261;
-  for (const char of `${categoryName}\0${subcategoryName}\0${itemTitle}`) {
-    hash ^= char.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(36).toUpperCase().padStart(8, "0").slice(-8);
-};
-
-const asEntry = (row: StorageRow, prefix: string) => {
-  const [dbKey, raw] = Array.isArray(row) ? row : [row.owner_key, row.value];
-  const suffix = String(dbKey).slice(prefix.length);
-  return {
-    suffix,
-    raw: String(raw),
-    value: (() => {
-      try {
-        return JSON.parse(String(raw));
-      } catch {
-        return String(raw);
-      }
-    })(),
-  };
-};
-
-const toTaxonomyFile = (name: string, taxonomy: Taxonomy) => ({
-  taxonomy: {
-    title: name,
-    version: "",
-    description: "",
-    categories: Object.entries(taxonomy.categories ?? {}).map(([categoryName, category]) => ({
-      id: mkId(categoryName),
-      name: categoryName,
-      description: category?.description || "",
-      subcategories: Object.entries(category?.subCategories ?? {}).map(([subcategoryName, subcategory]) => ({
-        id: mkId(`${categoryName}_${subcategoryName}`),
-        name: subcategoryName,
-        description: subcategory?.description || "",
-        schema: ITEM_SCHEMA,
-      })),
-    })),
-  },
-});
-
-export const queryFor = (owner: string, name: string) => {
-  const prefix = ownerPrefix(owner, name);
-  return `select * from storage where owner_key >= '${prefix}' and owner_key < '${prefix.slice(0, -1)};'`;
-};
-
-export const buildExportPlan = (
-  owner: string,
+type ModuleParams = {
+  id: string,
   name: string,
-  rows: StorageRow[],
-  { outputRoot = OUT, pulledAt = new Date().toISOString() }: BuildOptions = {},
-) => {
-  const moduleDir = `${outputRoot}/${safe(owner)}/${safe(name)}/en`;
-  const files: ExportFile[] = [];
-  const prefix = ownerPrefix(owner, name);
-  const picked = Object.fromEntries(KEYS.map((key) => [key, null])) as Record<(typeof KEYS)[number], ReturnType<typeof asEntry> | null>;
-  const add = (path: string, content: object | string) =>
-    files.push({ path: `${moduleDir}/${path}`, content: typeof content === "string" ? content : `${stringify(content as never)}\n` });
+  sort_order: number,
+  module_type: string,
+  location: string
+  downloaded?: true,
+}
 
-  for (const row of rows) {
-    const entry = asEntry(row, prefix);
-    const key = KEYS.find((candidate) => entry.suffix.startsWith(candidate));
-    if (key && (!picked[key] || entry.raw.length >= picked[key]!.raw.length)) picked[key] = entry;
+type TaxonomyParams = {
+  taxonomy: {
+    categories: {
+      id: string,
+      name: string,
+      sort_order: number,
+      description: string,
+      subcategories:{
+        id: string,
+        name: string,
+        sort_order: number,
+        description: string
+      }[]
+    }[]
   }
+}
 
-  if (picked.taxonomy?.value && typeof picked.taxonomy.value === "object" && !Array.isArray(picked.taxonomy.value)) {
-    add("taxonomy.json", toTaxonomyFile(name, picked.taxonomy.value as Taxonomy));
+type ItemParams = {
+  id: string,
+  name: string,
+  depiction: string,
+  sort_order: number,
+  taxonomy: {
+    category: string,
+    subcategory: string
   }
+}
 
-  if (picked.extraction?.value && typeof picked.extraction.value === "object" && !Array.isArray(picked.extraction.value)) {
-    for (const [categoryName, category] of Object.entries(picked.extraction.value as PulledExtraction)) {
-      if (!category || typeof category !== "object") continue;
-      for (const [subcategoryName, subcategory] of Object.entries(category)) {
-        if (!subcategory || typeof subcategory !== "object") continue;
-        const used = new Set<string>();
-        for (const [itemTitle, item] of Object.entries(subcategory)) {
-          let file = `${safe(itemTitle) || "item"}.json`;
-          for (let n = 2; used.has(file); n++) file = `${safe(itemTitle) || "item"}_${n}.json`;
-          used.add(file);
-          add(`data/${mkId(categoryName)}/${mkId(`${categoryName}_${subcategoryName}`)}/${file}`, {
-            id: itemId(categoryName, subcategoryName, itemTitle),
-            parent_id: null,
-            name: itemTitle,
-            depiction: item?.depiction || "",
-            content: item?.content || "",
-            taxonomy: {
-              category: mkId(categoryName),
-              subcategory: mkId(`${categoryName}_${subcategoryName}`),
-            },
-            source: [],
-            created_at: pulledAt,
-            modified_at: pulledAt,
-            created_by: { name: "lexXtract pull_module", schema_id: "Item" },
-            modified_by: { name: "lexXtract pull_module", schema_id: "Item" },
-            sort_order: null,
-            links: [],
-          });
+const ModulePattern: Pattern = {
+  id: String,
+  name: String,
+  "sort_order?": Number,
+  "module_type?": String,
+  location: String,
+  "downloaded?": true
+}
+
+const ModuleListPattern: Pattern = { modules: [ModulePattern] }
+
+const [path] = process.argv.slice(2)
+
+// {
+//   "sections": [
+//     { "name": "title", "sort_order": 0 },
+//     { "name": "content", "sort_order": 1 }
+//   ],
+//   "filters": [],
+//   "category_search_fields": [],
+//   "data_search_fields": [],
+//   "fields": [],
+//   "form_field_override": [],
+//   "default_field_option": {
+//     "key": "any",
+//     "sort_order": 999999,
+//     "display_option": "default",
+//     "section": "content"
+//   }
+// }
+
+type ConfigParams = {
+  sections: { name: string, sort_order: number }[],
+  filters: any[],
+  category_search_fields: string[],
+  data_search_fields: string[],
+  fields: any[],
+  form_field_override: any[],
+  default_field_option: {
+    key: string,
+    sort_order: number
+    display_option: string,
+    section: string
+  }
+}
+
+let loop = async ()=>{
+  let module_list = await readFile( path + "/modules.json").then(d=>JSON.parse(d.toString()) ) as { modules: ModuleParams[] }
+  const safe = (s:string) => s.replaceAll(/[^a-z0-9]/gi, "_").toLowerCase()
+  validate(ModuleListPattern, module_list)
+  let mods = await db.get_published()
+
+  for (const mod of mods) {
+    let modid = mod.owner + ":" + mod.module + ":" + mod.version
+    if (module_list.modules.some(l => l.id == modid)) continue
+    let mod_data = await createModule({owner: mod.owner, name: mod.module}, (c)=>{})
+
+    for (let [catName, cat] of Object.entries(mod_data.extraction.get())) {
+      catName = safe(catName)
+      for (let [subcatName, subcat] of Object.entries(cat)) {
+        subcatName = safe(subcatName)
+        let dir = `${path}/${modid}/en/data/${catName}/${subcatName}`
+        await mkdir(dir, {recursive: true})
+        for (const [itemName, item] of Object.entries(subcat)) {
+
+          let itemParams:ItemParams= {
+            id: `${modid}_${catName}_${subcatName}_${itemName}`,
+            name: itemName,
+            sort_order: 0,
+            depiction: item.depiction,
+            taxonomy: { category: catName, subcategory: subcatName }
+          }
+          await writeFile(`${dir}/${safe(itemName)}.json`, stringify(itemParams))
         }
       }
     }
+
+    let tax = mod_data.taxonomy.get()
+    let taxonomyParams : TaxonomyParams = {
+      taxonomy: {
+        categories: Object.entries(tax.categories).map(([catName, cat])=>({
+          // id: `${modid}_${catName}`,
+          id: safe(catName),
+          name: catName,
+          sort_order: 0,
+          description: cat.description,
+          subcategories: Object.entries(cat.subCategories).map(([subcatName, subcat])=>({
+            id: safe(subcatName),
+            name: subcatName,
+            sort_order: 0,
+            description: subcat.description,
+          }))
+        }))
+      }
+    };
+
+    await mkdir(`${path}/${modid}/en`, {recursive: true})
+    await writeFile( path + `/${modid}/en/taxonomy.json`, stringify(taxonomyParams))
+
+    const configParams: ConfigParams = {
+      sections: [
+        { name: "title", sort_order: 0 },
+        { name: "content", sort_order: 1 }
+      ],
+      filters: [],
+      category_search_fields: ["name", "description"],
+      data_search_fields: ["name", "depiction"],
+      fields: [
+        {
+          key:"name",
+          display_option: "header",
+          sort_order: 0,
+          section: "title"
+        },
+        {
+          key:"depiction",
+          display_option: "default",
+          sort_order: 1,
+          section: "content"
+        }
+      ],
+      form_field_override: [],
+      default_field_option: {
+        key: "any",
+        sort_order: 0,
+        display_option: "hidden",
+        section: "content"
+      }
+    }
+    await writeFile( path + `/${modid}/en/config.json`, stringify(configParams))
+    
+
+    module_list.modules.push({ id: modid, name: modid, sort_order:0, module_type: "demo", location: modid, downloaded: true })
+    await writeFile( path + "/modules.json", stringify(module_list))
   }
 
-  return { moduleDir, files };
-};
 
-export const pullModule = async (owner: string, name: string, { outputRoot = OUT, host = HOST, database = DB }: PullOptions = {}) => {
-  const response = await fetch(`${host}/v1/database/${database}/sql`, { method: "POST", body: queryFor(owner, name) });
-  if (!response.ok) throw new Error(`SQL request failed with ${response.status} ${response.statusText}`);
-  const rows = (await response.json())?.[0]?.rows;
-  if (!Array.isArray(rows)) throw new Error("Unexpected SQL response");
+  // console.log(`Pulled ${mods.length} modules`)
+  for (const mod of module_list.modules){
+    if (mod.downloaded && !mods.some(m => `${m.owner}:${m.module}:${m.version}` == mod.id)) {
+      console.log(`Module ${mod.id} is in modules.json but not in database, removing...`)
 
-  const plan = buildExportPlan(owner, name, rows, { outputRoot });
-  const dirs = new Set([plan.moduleDir, ...plan.files.map((file) => file.path.split("/").slice(0, -1).join("/"))]);
-  for (const dir of dirs) await mkdir(dir, { recursive: true });
-  for (const file of plan.files) await writeFile(file.path, file.content);
-  return plan;
-};
+      await rm(`${path}/${mod.id}`, {recursive: true})
+      module_list.modules = module_list.modules.filter(m => m.id != mod.id)
+      await writeFile( path + "/modules.json", stringify(module_list))
 
-if (import.meta.url === pathToFileURL(process.argv[1]!).href) {
-  const [owner, name, outputRoot = OUT, host = HOST, database = DB] = process.argv.slice(2);
-  if (!owner || !name) {
-    console.error("Usage: node scripts/pull_module.js <owner> <module_name> [output_dir] [host] [database]");
-    process.exitCode = 1;
-  } else {
-    const plan = await pullModule(owner, name, { outputRoot, host, database });
-    console.log(`Pulled ${owner}/${name} into ${plan.moduleDir}`);
+    }
   }
+
+  setTimeout(() => { loop() }, 500);
+
 }
+
+if (!path || !path.endsWith("json_content")) console.error("Usage: node scripts/pull_module.js <path_to_json_content_folder>")
+else loop()
