@@ -191,7 +191,7 @@ export const RemoteDB = async ():Promise<DB> => new Promise((res,err)=>{
           .subscribe(`select * from published`)
         })
       },
-      refresh: hot_cache.clear
+      refresh: ()=>hot_cache.clear()
     }
     db.signup(localUser.get()).then(()=>res(db))
     .catch(()=>{

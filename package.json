@@ -4,14 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "vite",
+    "build:pull_module": "esbuild scripts/pull_module.ts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/pull_module.js --banner:js='#!/usr/bin/env node'",
     "pull_module": "node scripts/pull_module.js",
     "build": "vite build"
   },
   "dependencies": {
+    "lexxtract-general-law": ".",
     "spacetimedb": "^2.1.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "esbuild": "^0.28.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.5"
   }

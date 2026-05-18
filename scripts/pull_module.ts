@@ -1,8 +1,7 @@
-// this script functions 
+// this script functions
 // for creating json_content folder
-import { createModule, db } from "../controller/module";
-import { stringify } from "../model/json";
-import { type Pattern, validate } from "../model/pattern";
+import { stringify } from "../model/json.js";
+import { type Pattern, validate } from "../model/pattern.js";
 import { readFile, writeFile } from "node:fs/promises"
 import { mkdir, rm } from "node:fs/promises";
 
@@ -49,7 +48,8 @@ const ModulePattern: Pattern = {
   "sort_order?": Number,
   "module_type?": String,
   location: String,
-  "downloaded?": true
+  "downloaded?": true,
+  additionalProperties: true
 }
 
 const ModuleListPattern: Pattern = { modules: [ModulePattern] }
@@ -73,6 +73,7 @@ type ConfigParams = {
 }
 
 let loop = async ()=>{
+  const { createModule, db } = await import("../controller/module.js");
   let module_list = await readFile( path + "/modules.json").then(d=>JSON.parse(d.toString()) ) as { modules: ModuleParams[] }
   const safe = (s:string) => s.replaceAll(/[^a-z0-9]/gi, "_").toLowerCase()
   validate(ModuleListPattern, module_list)
