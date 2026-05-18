@@ -49,7 +49,7 @@ const ModulePattern: Pattern = {
   "module_type?": String,
   location: String,
   "downloaded?": true,
-  additionalProperties: true
+  $additionalProperties: true
 }
 
 const ModuleListPattern: Pattern = { modules: [ModulePattern] }
