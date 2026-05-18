@@ -5,7 +5,7 @@ import { createModule, db, FunctionDefPattern, ModPathPattern  } from "../contro
 import { LocalStored, randUser } from "../model/db";
 import { hash } from "../model/hash";
 import { localApiKey } from "../controller/request";
-import { body, button, color, display, div, errorpopup, fromStore, h2, h3, input, margin, p, padding, popup, pre, span, style, table, td, tr } from "./html";
+import { background, body, button, color, display, div, errorpopup, fromStore, h1, h2, h3, input, margin, p, padding, popup, pre, span, style, table, td, tr, width } from "./html";
 import { jsonView, viewer } from "./json";
 import { fill, fromSchema, type Pattern } from "../model/pattern";
 import { cost_tracker } from "../controller/agent";
@@ -14,6 +14,64 @@ import { runTool } from "../controller/functions";
 
 
 let urlrequest:ModPath | null = null
+
+body.style.margin = "0"
+
+
+let currentModuleButton = button("loading", style({fontSize: "1.3em", margin: "0"}))
+
+let header = div(
+  style({
+    background: color.blue,
+    color: color.background,
+    padding:"1.5em",
+  }),
+  span(style({
+    backgroundImage: "url(http://localhost:5174/lexXtract-general-law/image.png)",
+    backgroundSize: "contain",
+    backgroundRepeat: "no-repeat",
+    width: "14em",
+    height: "4em",
+    display: "inline-block",
+  })),
+  div(
+    style({
+      display: "inline-block",
+      right: "1em",
+      position: "absolute",
+      fontSize: "0.9em",
+    }),
+    p("Select a module", style({margin:"0"})),
+    currentModuleButton,
+  )
+)
+const moduleHeader = h2("Module: loading...")
+const sidebar = div(
+  style({
+  //   display:"flex",
+  //   flexDirection:"column",
+    borderRight:`1px solid ${color.gray}`,
+  //   width:"200px",
+    height:"100vh",
+  //   position:"sticky",
+  //   top:"0",
+  //   padding:"1em",
+  }),
+  moduleHeader
+)
+
+let page = div()
+body.replaceChildren(header, div(
+  style({
+    display:"sticky",
+    top:"0",
+    flexDirection:"row",
+    gap:"2em",
+  }),
+  sidebar, page
+))
+
+
 
 location.search.split("&").forEach(param=>{
   if (param.startsWith("?")) param = param.slice(1)
@@ -180,7 +238,7 @@ let loadUser = async ()=>{
     const sections : {[key:string]: HTMLElement} = {
       Taxonomy,
       Documents,
-      Extract: viewer(
+      "Data View": viewer(
         module.extraction, (j,pt,onc)=> jsonView(j, pt, onc, (j,pp, onc)=>jsonView(
             j, pp, onc, (j, ppp, onc)=>{
               let d = j as {[key:string]: ExtractionItem}
@@ -229,35 +287,40 @@ let loadUser = async ()=>{
       content
     )
   
-    let sidebar = div()
+    // let sidebar = div()
+    moduleHeader.textContent = (mod.owner == db.userid ? "" : mod.owner + " / ") + (mod.name || "unnamed module")
     let renderSideBar = (item:string) =>{
       defaultSection.set(item)
-      return sidebar.replaceChildren(div(
-        style({
-          display:"flex",
-          flexDirection:"column",
-          borderRight:`1px solid ${color.gray}`,
-          width:"200px",
-          height:"100vh",
-          position:"sticky",
-          top:"1em",
-          padding:"1em",
-        }),
-        ...Object.entries(sections).map(([k,v])=>{
-          if (item == k) content.replaceChildren(v)
-          return h3(k, {
-            style:{
-              cursor:"pointer",
-              margin:0,
-              padding:".4em",
-              ...(item == k ? {
-                background: color.lightgray,
-              } : {})
-            },
-            onclick: ()=>renderSideBar(k)
+      return sidebar.replaceChildren(
+        moduleHeader,
+        div(
+          style({
+            // display:"flex",
+            // flexDirection:"column",
+            // borderRight:`1px solid ${color.gray}`,
+            // width:"200px",
+            // height:"100vh",
+            // position:"sticky",
+            // top:"1em",
+            // padding:"1em",
+          }),
+          ...Object.entries(sections).map(([k,v])=>{
+            if (item == k) content.replaceChildren(v)
+            return h3(k, {
+              style:{
+                cursor:"pointer",
+                margin:0,
+                padding:".4em",
+                ...(item == k ? {
+                  background: color.lightgray,
+                } : {})
+              },
+              onclick: ()=>renderSideBar(k)
+            })
           })
-        })
-      ))}
+        )
+      )
+    }
     if (defaultSection.get() in sections) renderSideBar(defaultSection.get()!)
   
     let headbutton = (text:string, onclick:()=>void):HTMLElement=>span(text, {
@@ -317,53 +380,55 @@ let loadUser = async ()=>{
       module_list.set([...module_list.get(), newmod])
       current_module.set(newmod)
     })
-    body.replaceChildren(
+    page.replaceChildren(
       fromStore(db.saving, s=> div(
         style({position: "fixed",background: color.gray,color: color.green,zIndex: "2000",padding: "1em",borderRadius: ".5em",display: s>0 ? "block" : "none"}),
         "saving "+s+" item"+(s>1 ? "s" : "")
       )),
-      div(h2("lexxtract : " + (mod.owner == db.userid ? "" : mod.owner + " / ") + (mod.name || "unnamed module"),
-        share,
-        window.origin.includes("localhost") ? share_local : [],
-        pickmod,
-        addmod,
-        headbutton("🚀publish" , ()=>{
-          let vinput = input({placeholder:"v1.0"})
-          let pop = popup(
-            h2("Publish: ", mod.owner, "/", mod.name), 
-            p("Publishing your module makes it visible to customers on the ETKOM App"),
-            
-            span("version: ", vinput),
-            button("Publish", {
-              onclick:()=>{
-                db.publish(mod.owner, mod.name, vinput.value || vinput.placeholder, false )
-                .then(()=>{
-                  pop.remove()
-                  popup(h2("Pulished successfully!"), p("Module: ", mod.owner, "/", mod.name, " version: ", vinput.value || vinput.placeholder), )})
-                .catch(e=>errorpopup(e as Error))
-
-              }
-            }),
-            db.get_published().then( mods=>mods.length == 0 ? [] : [
-                p("past versions:"),
-                table(mods.filter(m=>m.module == mod.name && m.owner == mod.owner).map(m=>
-                tr(
-                  td(m.version),
-                  td(button("unpublish", {
-                  onclick:()=>{
-                    if (confirm("Are you sure you want to unpublish this version? This action cannot be undone.")){
-                      db.publish(m.owner, m.module, m.version, true)
-                      pop.remove()
-                    }
-                  }
-                }))))
+      div(
+        // h2("lexxtract : " + (mod.owner == db.userid ? "" : mod.owner + " / ") + (mod.name || "unnamed module"),
+        //   share,
+        //   window.origin.includes("localhost") ? share_local : [],
+        //   pickmod,
+        //   addmod,
+        //   headbutton("🚀publish" , ()=>{
+        //     let vinput = input({placeholder:"v1.0"})
+        //     let pop = popup(
+        //       h2("Publish: ", mod.owner, "/", mod.name), 
+        //       p("Publishing your module makes it visible to customers on the ETKOM App"),
               
-                )
-              ]
-            ),
-          )
-        })
-      ),),
+        //       span("version: ", vinput),
+        //       button("Publish", {
+        //         onclick:()=>{
+        //           db.publish(mod.owner, mod.name, vinput.value || vinput.placeholder, false )
+        //           .then(()=>{
+        //             pop.remove()
+        //             popup(h2("Pulished successfully!"), p("Module: ", mod.owner, "/", mod.name, " version: ", vinput.value || vinput.placeholder), )})
+        //           .catch(e=>errorpopup(e as Error))
+
+        //         }
+        //       }),
+        //       db.get_published().then( mods=>mods.length == 0 ? [] : [
+        //           p("past versions:"),
+        //           table(mods.filter(m=>m.module == mod.name && m.owner == mod.owner).map(m=>
+        //           tr(
+        //             td(m.version),
+        //             td(button("unpublish", {
+        //             onclick:()=>{
+        //               if (confirm("Are you sure you want to unpublish this version? This action cannot be undone.")){
+        //                 db.publish(m.owner, m.module, m.version, true)
+        //                 pop.remove()
+        //               }
+        //             }
+        //           }))))
+                
+        //           )
+        //         ]
+        //       ),
+        //     )
+        //   })
+        // ),
+      ),
       div(
         style({
           marginTop:"1em",

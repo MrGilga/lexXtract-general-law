@@ -9,7 +9,7 @@ const colorPalette = {
     background:        "#fff",
     red:               "rgb(242, 55, 55)",
     green:             "rgb(57, 214, 39)",
-    blue:              "rgb(48, 82, 255)",
+    blue:              "rgb(49, 58, 103)",
     gray:              "#888",
     lightgray:         "#e5e5e5",
   },
