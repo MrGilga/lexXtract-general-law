@@ -96,7 +96,7 @@ let loop = async ()=>{
   let mods = await db.get_published()
 
   for (const mod of mods) {
-    let modid = encodeURI(mod.owner + ":" + mod.module + ":" + mod.version)
+    let modid = (mod.owner + ":" + mod.module + ":" + mod.version)
     if (module_list.modules.some(l => l.id == modid)) continue
     let mod_data = await createModule({owner: mod.owner, name: mod.module}, (c)=>{})
 
@@ -120,20 +120,18 @@ let loop = async ()=>{
       }
     }
 
-    let tax = mod_data.taxonomy.get()
     let taxonomyParams : TaxonomyParams = {
       taxonomy: {
-        categories: Object.entries(tax.categories).map(([catName, cat])=>({
-          // id: `${modid}_${catName}`,
+        categories: Object.entries(mod_data.extraction.get()).map(([catName, cat])=>({
           id: safe(catName),
           name: catName,
           sort_order: 0,
-          description: cat.description,
-          subcategories: Object.entries(cat.subCategories).map(([subcatName, subcat])=>({
+          description: "",
+          subcategories: Object.keys(cat).map((subcatName)=>({
             id: safe(subcatName),
             name: subcatName,
             sort_order: 0,
-            description: subcat.description,
+            description: "",
           }))
         }))
       }
@@ -180,7 +178,7 @@ let loop = async ()=>{
 
   // console.log(`Pulled ${mods.length} modules`)
   for (const mod of module_list.modules){
-    if (mod.downloaded && !mods.some(m => `${m.owner}:${m.module}:${m.version}` == mod.id)) {
+    if (mod.downloaded && !mods.some(m => (`${m.owner}:${m.module}:${m.version}`) == mod.id)) {
       console.log(`Module ${mod.id} is in modules.json but not in database, removing...`)
 
       await rm(`${path}/${mod.id}`, {recursive: true})

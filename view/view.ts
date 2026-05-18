@@ -48,28 +48,22 @@ let header = div(
 const moduleHeader = h2("Module: loading...")
 const sidebar = div(
   style({
-  //   display:"flex",
-  //   flexDirection:"column",
-    borderRight:`1px solid ${color.gray}`,
-  //   width:"200px",
-    height:"100vh",
-  //   position:"sticky",
-  //   top:"0",
-  //   padding:"1em",
+    width:"200px",
+    height:"calc(100vh - 1em)",
+    position:"sticky",
+    top:"1em",
+    alignSelf:"flex-start",
+    padding:"1em",
   }),
   moduleHeader
 )
 
-let page = div()
-body.replaceChildren(header, div(
-  style({
-    display:"sticky",
-    top:"0",
-    flexDirection:"row",
-    gap:"2em",
-  }),
-  sidebar, page
-))
+let page = div(style({
+  marginTop:"1em",
+  display:"flex",
+  flexDirection:"column",
+}))
+body.replaceChildren(header, page)
 
 
 
@@ -129,6 +123,7 @@ let loadUser = async ()=>{
       let pwd = input({type:"password", placeholder:"new password"})
       let apikey = input({ type:"password", placeholder:"new API key"})
       Settings.replaceChildren (div(
+        h3("Account Settings"),
         table(
           style({borderSpacing: "0.5em",}),
           tr(
@@ -168,8 +163,49 @@ let loadUser = async ()=>{
             }}))
           ),
         ),
-        cost_tracker.map(c=>"usage: " + c.toFixed(4))
+        cost_tracker.map(c=>"usage: " + c.toFixed(4)),
+        div(
+          h3("publishing"),
+          p("Publishing your module makes it visible to customers on the ETKOM App"),
+          button("publish", {
+            onclick:()=>{
+              let vinput = input({placeholder:"v1.0"})
+              let pop = popup(
+                h2("Publish: ", mod.owner, "/", mod.name), 
+                p("Publishing your module makes it visible to customers on the ETKOM App"),
+                
+                span("version: ", vinput),
+                button("Publish", {
+                  onclick:()=>{
+                    db.publish(mod.owner, mod.name, vinput.value || vinput.placeholder, false )
+                    .then(()=>{
+                      pop.remove()
+                      popup(h2("Pulished successfully!"), p("Module: ", mod.owner, "/", mod.name, " version: ", vinput.value || vinput.placeholder), )})
+                    .catch(e=>errorpopup(e as Error))
+
+                  }
+                }),
+                db.get_published().then( mods=>mods.length == 0 ? [] : [
+                    p("past versions:"),
+                    table(mods.filter(m=>m.module == mod.name && m.owner == mod.owner).map(m=>
+                      tr(
+                        td(m.version),
+                        td(button("unpublish", {
+                        onclick:()=>{
+                          if (confirm("Are you sure you want to unpublish this version? This action cannot be undone.")){
+                            db.publish(m.owner, m.module, m.version, true)
+                            pop.remove()
+                          }
+                        }
+                      })))
+                    ))
+                ]),
+              )
+            }
+          })
+        )
       ))
+                
     }
     mksettings()
 
@@ -236,9 +272,9 @@ let loadUser = async ()=>{
 
     
     const sections : {[key:string]: HTMLElement} = {
-      Taxonomy,
+      // Taxonomy,
       Documents,
-      "Data View": viewer(
+      "Data Explorer": viewer(
         module.extraction, (j,pt,onc)=> jsonView(j, pt, onc, (j,pp, onc)=>jsonView(
             j, pp, onc, (j, ppp, onc)=>{
               let d = j as {[key:string]: ExtractionItem}
@@ -269,7 +305,7 @@ let loadUser = async ()=>{
           ))
         ),
       Agent,
-      Functions,
+      // Functions,
       Settings,
     }
   
@@ -282,28 +318,40 @@ let loadUser = async ()=>{
         display:"flex",
         flexDirection:"column",
         gap:"1em",
-        padding:"1em"
+        padding:"1em",
+        minWidth:"0",
+        flex:"1",
       }),
       content
     )
+
+
+    let headbutton = (text:string, onclick:()=>void):HTMLElement=>span(text, {
+      style:{
+        cursor:"pointer",
+        marginLeft:"1em",
+        fontSize:"0.8em",
+        color:color.gray,
+        border:`1px solid ${color.gray}`,
+        padding:"0.2em",
+        borderRadius:".3em",
+        background: color.background,
+      },
+      onclick})
+    let share = headbutton("🔗", ()=>{
+          navigator.clipboard.writeText("https://dkormann.github.io/lexXtract-general-law/"+"?module="+encodeURIComponent(JSON.stringify(mod)))
+          share.textContent = "✅copied!"
+          setTimeout(() => {share.textContent = "🔗"}, 1000)
+          });
   
     // let sidebar = div()
-    moduleHeader.textContent = (mod.owner == db.userid ? "" : mod.owner + " / ") + (mod.name || "unnamed module")
+    moduleHeader.replaceChildren(span((mod.owner == db.userid ? "" : mod.owner + " / ") + (mod.name || "unnamed module")), share)
     let renderSideBar = (item:string) =>{
       defaultSection.set(item)
       return sidebar.replaceChildren(
         moduleHeader,
         div(
-          style({
-            // display:"flex",
-            // flexDirection:"column",
-            // borderRight:`1px solid ${color.gray}`,
-            // width:"200px",
-            // height:"100vh",
-            // position:"sticky",
-            // top:"1em",
-            // padding:"1em",
-          }),
+          style({}),
           ...Object.entries(sections).map(([k,v])=>{
             if (item == k) content.replaceChildren(v)
             return h3(k, {
@@ -323,32 +371,17 @@ let loadUser = async ()=>{
     }
     if (defaultSection.get() in sections) renderSideBar(defaultSection.get()!)
   
-    let headbutton = (text:string, onclick:()=>void):HTMLElement=>span(text, {
-      style:{
-        cursor:"pointer",
-        marginLeft:"1em",
-        fontSize:"0.8em",
-        color:color.gray,
-        border:`1px solid ${color.gray}`,
-        padding:"0.2em",
-        borderRadius:".3em"
-      },
-      onclick})
 
-    let share = headbutton("🔗share", ()=>{
-          navigator.clipboard.writeText("https://dkormann.github.io/lexXtract-general-law/"+"?module="+encodeURIComponent(JSON.stringify(mod)))
-          share.textContent = "✅copied!"
-          setTimeout(() => {share.textContent = "🔗share"}, 1000)
-          });
 
     let share_local = headbutton("🔗sharelocal", ()=>{
       navigator.clipboard.writeText(window.origin+"/lexXtract-general-law/"+"?module="+encodeURIComponent(JSON.stringify(mod)))
       share_local.textContent = "✅copied!"
       setTimeout(() => {share_local.textContent = "🔗share"}, 1000)
-      });
+    });
 
+    currentModuleButton.textContent = mod.name || "unnamed module"
 
-    let pickmod = headbutton("📂pick", async ()=>
+    currentModuleButton.onclick = (()=>
       {
         let mods = module_list.get()
         let pop = popup(
@@ -431,12 +464,18 @@ let loadUser = async ()=>{
       ),
       div(
         style({
-          marginTop:"1em",
           display:"flex",
           flexDirection:"row",
           gap:"2em",
+          alignItems:"stretch",
+          width:"100%",
         }),
-        sidebar,
+        div(
+          style({
+            borderRight:`1px solid ${color.gray}`,
+          }),
+          sidebar
+        ),
         contentbar
       )
     )
@@ -445,5 +484,3 @@ let loadUser = async ()=>{
 }
 
 if (typeof window !== "undefined"){loadUser()}
-
-
