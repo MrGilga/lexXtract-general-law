@@ -27,7 +27,7 @@ let header = div(
     padding:"1.5em",
   }),
   span(style({
-    backgroundImage: "url(http://localhost:5174/lexXtract-general-law/image.png)",
+    backgroundImage: "url(/lexXtract-general-law/image.png)",
     backgroundSize: "contain",
     backgroundRepeat: "no-repeat",
     width: "14em",

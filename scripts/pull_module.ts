@@ -56,23 +56,6 @@ const ModuleListPattern: Pattern = { modules: [ModulePattern] }
 
 const [path] = process.argv.slice(2)
 
-// {
-//   "sections": [
-//     { "name": "title", "sort_order": 0 },
-//     { "name": "content", "sort_order": 1 }
-//   ],
-//   "filters": [],
-//   "category_search_fields": [],
-//   "data_search_fields": [],
-//   "fields": [],
-//   "form_field_override": [],
-//   "default_field_option": {
-//     "key": "any",
-//     "sort_order": 999999,
-//     "display_option": "default",
-//     "section": "content"
-//   }
-// }
 
 type ConfigParams = {
   sections: { name: string, sort_order: number }[],
@@ -98,6 +81,7 @@ let loop = async ()=>{
   for (const mod of mods) {
     let modid = (mod.owner + ":" + mod.module + ":" + mod.version)
     if (module_list.modules.some(l => l.id == modid)) continue
+    db.refresh()
     let mod_data = await createModule({owner: mod.owner, name: mod.module}, (c)=>{})
 
     for (let [catName, cat] of Object.entries(mod_data.extraction.get())) {
@@ -173,6 +157,7 @@ let loop = async ()=>{
     await writeFile( path + `/${modid}/en/config.json`, stringify(configParams))
     module_list.modules.push({ id: modid, name: modid, sort_order:0, module_type: "demo", location: modid, downloaded: true })
     await writeFile( path + "/modules.json", stringify(module_list))
+
   }
 
 

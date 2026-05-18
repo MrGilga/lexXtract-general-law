@@ -7111,6 +7111,7 @@ var loop = async () => {
     let modid = mod.owner + ":" + mod.module + ":" + mod.version;
     if (module_list.modules.some((l) => l.id == modid))
       continue;
+    db.refresh();
     let mod_data = await createModule({ owner: mod.owner, name: mod.module }, (c) => {});
     for (let [catName, cat] of Object.entries(mod_data.extraction.get())) {
       catName = safe(catName);
@@ -7130,19 +7131,18 @@ var loop = async () => {
         }
       }
     }
-    let tax = mod_data.taxonomy.get();
     let taxonomyParams = {
       taxonomy: {
-        categories: Object.entries(tax.categories).map(([catName, cat]) => ({
+        categories: Object.entries(mod_data.extraction.get()).map(([catName, cat]) => ({
           id: safe(catName),
           name: catName,
           sort_order: 0,
-          description: cat.description,
-          subcategories: Object.entries(cat.subCategories).map(([subcatName, subcat]) => ({
+          description: "",
+          subcategories: Object.keys(cat).map((subcatName) => ({
             id: safe(subcatName),
             name: subcatName,
             sort_order: 0,
-            description: subcat.description
+            description: ""
           }))
         }))
       }
