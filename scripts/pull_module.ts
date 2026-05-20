@@ -1,7 +1,7 @@
 // this script functions
 // for creating json_content folder
 import { stringify } from "../model/json.js";
-import { type Pattern, validate } from "../model/pattern.js";
+import { type Pattern, validate} from "../model/pattern.js";
 import { readFile, writeFile } from "node:fs/promises"
 import { mkdir, rm } from "node:fs/promises";
 
@@ -45,15 +45,18 @@ type ItemParams = {
 const ModulePattern: Pattern = {
   id: String,
   name: String,
-  "sort_order?": Number,
+  "sort_order?": [Number, String],
   "module_type?": String,
   location: String,
   "downloaded?": true,
   $additionalProperties: true
 }
 
-const ModuleListPattern: Pattern = { modules: [ModulePattern] }
-
+const ModuleListPattern: Pattern = { 
+  id: String,
+  name: String,
+  modules: [ModulePattern]
+}
 const [path] = process.argv.slice(2)
 
 
